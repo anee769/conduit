@@ -1,0 +1,61 @@
+{
+  "title": "AI FinOps Gateway",
+  "uid": "finops-gateway",
+  "schemaVersion": 39,
+  "timezone": "",
+  "tags": ["finops", "llm", "gateway"],
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Request rate by status",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum by (status) (rate(gateway_proxy_requests_total[5m]))", "legendFormat": "{{status}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Spend rate (USD/min) by model",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "sum by (model) (rate(gateway_cost_usd_total[5m])) * 60", "legendFormat": "{{model}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Upstream latency p50/p95",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(gateway_proxy_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(gateway_proxy_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Cache hits / savings (USD)",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+      "targets": [
+        { "expr": "sum(increase(gateway_cache_hits_total[1h]))", "legendFormat": "hits/1h" },
+        { "expr": "sum(increase(gateway_cache_savings_usd_total[1h]))", "legendFormat": "saved/1h" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Blocked (402) & rate-limited (429)",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
+      "targets": [
+        { "expr": "sum(increase(gateway_proxy_requests_total{status=\"402\"}[1h]))", "legendFormat": "budget-blocked" },
+        { "expr": "sum(increase(gateway_rate_limited_total[1h]))", "legendFormat": "rate-limited" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens/min by kind",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        { "expr": "sum by (kind) (rate(gateway_tokens_total[5m])) * 60", "legendFormat": "{{kind}}" }
+      ]
+    }
+  ]
+}

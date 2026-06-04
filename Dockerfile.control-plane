@@ -1,0 +1,14 @@
+# AI FinOps Gateway — control plane (Next.js dashboard + admin API).
+FROM node:22-alpine
+RUN corepack enable
+WORKDIR /app
+
+COPY pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/control-plane ./apps/control-plane
+
+RUN pnpm install --no-frozen-lockfile
+RUN pnpm --filter @finops/control-plane build
+
+EXPOSE 3000
+CMD ["pnpm", "--filter", "@finops/control-plane", "start"]

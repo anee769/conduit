@@ -1,0 +1,44 @@
+# Prometheus alerting rules shipped with the AI FinOps Gateway.
+# Load via your Prometheus `rule_files:`. Metric names match apps/gateway.
+groups:
+  - name: finops-gateway
+    rules:
+      - alert: GatewayDown
+        expr: up{job="finops-gateway"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "FinOps gateway is down"
+          description: "No scrape from the gateway for 2m."
+
+      - alert: HighUpstreamErrorRate
+        expr: |
+          sum(rate(gateway_proxy_requests_total{status=~"5..|error"}[5m]))
+            / clamp_min(sum(rate(gateway_proxy_requests_total[5m])), 1) > 0.1
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Upstream error rate > 10%"
+          description: "More than 10% of proxied requests are failing over 5m."
+
+      - alert: HighProxyLatencyP95
+        expr: histogram_quantile(0.95, sum(rate(gateway_proxy_latency_seconds_bucket[5m])) by (le)) > 10
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 upstream latency > 10s"
+
+      - alert: BudgetBlocksOccurring
+        expr: increase(gateway_proxy_requests_total{status="402"}[15m]) > 0
+        for: 1m
+        labels: { severity: info }
+        annotations:
+          summary: "Requests are being blocked by budget caps"
+          description: "A team/org has hit a hard spend cap in the last 15m."
+
+      - alert: RateLimitingActive
+        expr: increase(gateway_rate_limited_total[15m]) > 0
+        for: 1m
+        labels: { severity: info }
+        annotations:
+          summary: "Per-key rate limiting is rejecting requests"

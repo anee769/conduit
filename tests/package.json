@@ -1,0 +1,21 @@
+{
+  "name": "@finops/tests",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:unit": "node --import tsx --test \"unit/**/*.test.ts\"",
+    "test:system": "node --import tsx --test \"system/**/*.test.ts\"",
+    "test": "node --import tsx --test \"unit/**/*.test.ts\" \"system/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@finops/db": "workspace:*",
+    "@finops/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

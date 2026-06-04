@@ -1,0 +1,95 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: finops
+      POSTGRES_PASSWORD: finops
+      POSTGRES_DB: finops
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    environment:
+      CLICKHOUSE_USER: finops
+      CLICKHOUSE_PASSWORD: finops
+      CLICKHOUSE_DB: finops
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "8123:8123"
+      # native TCP — host side remapped to 9100 to avoid a common :9000 conflict
+      - "9100:9000"
+    volumes:
+      - chdata:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Application services (profile "app") ─────────────────────────────────
+  # `docker compose up -d` brings up ONLY the datastores (the dev-on-host flow).
+  # `docker compose --profile app up --build` brings up the full stack.
+  gateway:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    environment:
+      PORT: "4000"
+      FAIL_MODE: open
+      MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY:-change-me-generate-a-32-byte-key}
+      POSTGRES_URL: postgres://finops:finops@postgres:5432/finops
+      CLICKHOUSE_URL: http://finops:finops@clickhouse:8123/finops
+      REDIS_URL: redis://redis:6379
+      UPSTREAM_ANTHROPIC_URL: https://api.anthropic.com
+      UPSTREAM_OPENAI_URL: https://api.openai.com
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  control-plane:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile.control-plane
+    environment:
+      POSTGRES_URL: postgres://finops:finops@postgres:5432/finops
+      CLICKHOUSE_URL: http://finops:finops@clickhouse:8123/finops
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  chdata:
+  redisdata:

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.next/
+out/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.log
+.turbo/
+coverage/
+support-bundle-*/
+
+# Private operator notes — never commit (may contain ownership/IP context)
+*.local.md

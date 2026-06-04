@@ -1,0 +1,15 @@
+# AI FinOps Gateway — data plane image. Build context = repo root (monorepo).
+FROM node:22-alpine
+RUN corepack enable
+WORKDIR /app
+
+# Workspace manifests first for better layer caching.
+COPY pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/gateway ./apps/gateway
+
+RUN pnpm install --no-frozen-lockfile
+
+EXPOSE 4000
+# Gateway runs on tsx (no build step) — lean and fast to boot.
+CMD ["pnpm", "--filter", "@finops/gateway", "start"]
