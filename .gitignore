@@ -14,3 +14,6 @@ support-bundle-*/
 
 # Private operator notes — never commit (may contain ownership/IP context)
 *.local.md
+
+# Local dev tooling (preview launch config, etc.)
+.claude/
