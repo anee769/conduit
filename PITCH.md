@@ -217,7 +217,7 @@ Not a slide. A working, tested system:
 - **Provider adapters: sit in front of AWS Bedrock (SigV4) or Azure OpenAI** — an org
   becomes a Bedrock/Azure shop with no client change
 - Dashboard with auth, admin API, first-run setup wizard, Docker/compose, install doc
-- **59 automated tests** (incl. AWS SigV4 verified against the published vector).
+- **61 automated tests** (incl. AWS SigV4 verified against the published vector).
   < 5ms overhead, zero TTFT impact, metadata-only.
 
 ---
