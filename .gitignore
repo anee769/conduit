@@ -17,3 +17,6 @@ support-bundle-*/
 
 # Local dev tooling (preview launch config, etc.)
 .claude/
+
+# Local cost-capture artifacts (may contain org/usage data)
+cost-capture-*/
