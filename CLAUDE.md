@@ -12,7 +12,7 @@ data model, pricing, and the §13 onboarding design.
 
 ---
 
-## STATUS: Phase-1 MVP (M1–M8) + Phase-2 governance started · full test suite (59 passing)
+## STATUS: Phase-1 MVP (M1–M8) + Phase-2 governance started · full test suite (61 passing)
 
 | # | Milestone | State |
 |---|-----------|-------|
@@ -62,6 +62,7 @@ apps/
                      bedrock.ts, sigv4.ts (PURE AWS SigV4, unit-tested vs AWS vector),
                      index.ts (registry + resolveCredential: prefer Bedrock/Azure if configured)
     scripts/         mock-upstream.ts, support-bundle.ts
+      routes/proxy.ts also registers passthrough() for /v1/messages/count_tokens (auth, not metered)
   control-plane/     Next.js 15 / React 19 — dashboard + admin API + /setup wizard
     app/
       page.tsx       dashboard (KPI cards, charts, budgets panel, tables)
@@ -102,6 +103,11 @@ Order is deliberate — a cache hit must never bypass policy:
 **Privacy-first:** never logs/stores prompt or completion bodies — metadata only.
 **Async metering** (ClickHouse insert) never blocks the client response.
 
+**Utility passthrough:** `POST /v1/messages/count_tokens` (Claude Code calls it
+constantly to size context) goes through `passthrough()` — authenticated + real
+credential injected, but **NOT metered/scanned/cached**, so it never 404s and
+never pollutes the spend/attribution numbers.
+
 ---
 
 ## RUN IT
@@ -130,12 +136,17 @@ docker compose --profile app up --build
 ## TEST
 
 ```bash
-pnpm --filter @finops/tests test:unit             # 21 pure-logic tests, no infra
-pnpm --filter @finops/tests test:system           # 16 live tests (needs stack up)
+pnpm --filter @finops/tests test:unit             # 37 pure-logic tests, no infra
+pnpm --filter @finops/tests test:system           # 24 live tests (needs stack up)
 # or the orchestrated runner (brings the whole stack up first):
+bash scripts/run-tests.sh             # macOS/Linux (full unit + system)
 pwsh scripts/run-tests.ps1            # Windows
-# (on macOS/Linux, replicate run-tests.ps1's steps in bash — see that file)
+# Mirror what CI runs, before pushing:
+bash scripts/ci-local.sh              # install + typecheck + unit + system
+bash scripts/ci-local.sh --fast       # typecheck + unit only (no Docker)
 ```
+CI (`.github/workflows/ci.yml`) runs both jobs on every PR + push to master/dev.
+Capture a real session's spend for the pitch: `bash scripts/capture-cost.sh`.
 
 Always run `pnpm -r typecheck` before considering a change done. Add/keep tests
 for new behavior — the suite is the contract.

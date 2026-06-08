@@ -29,6 +29,7 @@ LLM spend. See [`MVP_SPEC.md`](MVP_SPEC.md) for the full product spec.
   - **per-key/per-model cost attribution** + **exportable audit log** (`/api/audit`, CSV/JSON, metadata-only, gated)
   - **provider adapters** — sit in front of **AWS Bedrock (SigV4)** or **Azure OpenAI** with no client change
   - **governance alert→block feedback loop** — promote categories to block via `GOVERNANCE_BLOCK_CATEGORIES`
+  - **Claude Code ready** — `/v1/messages/count_tokens` passthrough (auth, not metered) + `scripts/capture-cost.sh` to snapshot a real session's spend for the pitch
 
 ### Run it
 
@@ -45,7 +46,7 @@ docker exec conduit-gateway-1 pnpm --filter @finops/db seed-pricing
 
 ### Tests
 ```bash
-bash scripts/run-tests.sh             # unit + live system suite (59 tests) — macOS/Linux
+bash scripts/run-tests.sh             # unit + live system suite (61 tests) — macOS/Linux
 bash scripts/run-tests.sh --unit-only # pure-logic units, no stack needed
 pwsh scripts/run-tests.ps1            # Windows equivalent
 ```
