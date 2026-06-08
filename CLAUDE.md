@@ -239,8 +239,8 @@ alert→promote-to-block as how governance actually ships.
    ready, metadata-only, gated (dashboard cookie OR admin token). Export buttons on
    the Activity tab. The artifact that makes a security review short.
 5. 🔨 **Hardening gates** — ✅ Docker images built + smoke-tested, ✅ clean install
-   doc (`INSTALL.md`); REMAINING: wire `run-tests.sh` into CI, capture one real
-   before/after cost number.
+   doc (`INSTALL.md`), ✅ CI runs the full unit+system suite (`.github/workflows/ci.yml`,
+   mock-backed stack); REMAINING: capture one real before/after cost number.
 
 **NEXT — "sit in front of Bedrock" + governance-that-ships:**
 6. ✅ **Bedrock + Azure OpenAI adapters (DONE)** — `apps/gateway/src/adapters/*`.
