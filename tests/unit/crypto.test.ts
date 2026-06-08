@@ -20,6 +20,11 @@ test("ciphertext is non-deterministic (random IV)", () => {
 test("tampered ciphertext fails to decrypt (GCM auth)", () => {
   const sealed = encryptSecret("hello");
   const [iv, tag, ct] = sealed.split(":");
-  const flipped = ct!.slice(0, -2) + (ct!.endsWith("A") ? "B" : "A") + ct!.slice(-1);
+  // Flip the FIRST ciphertext char to a guaranteed-different base64 char (if it's
+  // "A" use "B", else "A" — always a real change). The previous version replaced
+  // the second-to-last char based on the last char, which could pick the same
+  // char already there → a no-op tamper → flaky pass.
+  const flipped = (ct![0] === "A" ? "B" : "A") + ct!.slice(1);
+  assert.notEqual(flipped, ct, "tamper must actually change the ciphertext");
   assert.throws(() => decryptSecret(`${iv}:${tag}:${flipped}`));
 });

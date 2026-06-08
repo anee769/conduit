@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # PRs (into dev or master) are covered by the pull_request event below; we only
+  # run on push for the long-lived branches to avoid duplicate runs while a PR is open.
   push:
-    branches: [master, main, dev]
+    branches: [master, main]
   pull_request:
 
 # Cancel superseded runs on the same ref.
