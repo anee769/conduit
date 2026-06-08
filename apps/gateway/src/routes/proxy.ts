@@ -506,9 +506,77 @@ async function forward(c: Context, provider: UpstreamProvider) {
   return new Response(null, { status: upstream.status, headers: passHeaders });
 }
 
+/**
+ * Lightweight authenticated passthrough for utility endpoints that carry no
+ * billable usage — currently Anthropic's `/v1/messages/count_tokens`, which
+ * Claude Code calls frequently to size the context window. We still enforce the
+ * virtual key and inject the real credential, but DON'T meter (no cost, and it
+ * keeps utility calls out of the spend/attribution numbers) and DON'T scan/cache.
+ */
+async function passthrough(c: Context, family: UpstreamProvider) {
+  const token = extractToken(c);
+  if (!token || !token.startsWith("vk_")) {
+    return c.json({ error: { message: "missing or invalid virtual key", type: "authentication_error" } }, 401);
+  }
+  let vk;
+  try {
+    vk = await lookupVirtualKey(token);
+  } catch (err) {
+    logger.error({ err: String(err) }, "virtual key lookup failed");
+    return c.json({ error: { message: "authentication backend unavailable" } }, 503);
+  }
+  if (!vk || vk.status !== "active") {
+    return c.json({ error: { message: "invalid or revoked virtual key", type: "authentication_error" } }, 401);
+  }
+
+  const rawBody = await c.req.arrayBuffer();
+  let model = "unknown";
+  try {
+    model = JSON.parse(new TextDecoder().decode(rawBody))?.model ?? "unknown";
+  } catch {
+    /* non-JSON body */
+  }
+
+  let cred;
+  try {
+    cred = await resolveCredential(vk.orgId, family);
+  } catch (err) {
+    logger.error({ err: String(err) }, "provider credential lookup failed");
+    return c.json({ error: { message: "credential backend unavailable" } }, 503);
+  }
+  if (!cred) {
+    return c.json({ error: { message: `no enabled ${family} credential configured`, type: "configuration_error" } }, 502);
+  }
+
+  const incoming = new URL(c.req.url);
+  let prepared;
+  try {
+    prepared = adapterFor(cred.providerKind).prepare(
+      cred,
+      { method: c.req.method, pathname: incoming.pathname, search: incoming.search, model, headers: c.req.header(), body: rawBody, stream: false },
+      config.upstreams[family],
+    );
+  } catch (err) {
+    logger.error({ err: String(err), providerKind: cred.providerKind }, "adapter prepare failed");
+    return c.json({ error: { message: "upstream credential misconfigured", provider: family } }, 502);
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(prepared.url, { method: c.req.method, headers: prepared.headers, body: prepared.body });
+  } catch (err) {
+    logger.error({ err: String(err), family }, "passthrough upstream failed");
+    return c.json({ error: { message: "upstream request failed", provider: family } }, 502);
+  }
+  return new Response(upstream.body, { status: upstream.status, headers: stripResponseHeaders(upstream.headers) });
+}
+
 export const proxyRoutes = new Hono();
 
 // Anthropic native surface — what Claude Code talks to (ANTHROPIC_BASE_URL).
+// count_tokens MUST be registered before /v1/messages is not required (exact
+// paths), but it must exist or Claude Code's token-counting calls 404.
+proxyRoutes.post("/v1/messages/count_tokens", (c) => passthrough(c, "anthropic"));
 proxyRoutes.post("/v1/messages", (c) => forward(c, "anthropic"));
 
 // OpenAI-compatible surface — Codex / OpenAI SDK clients.
