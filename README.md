@@ -1,5 +1,7 @@
 # AI FinOps Gateway
 
+[![CI](https://github.com/anee769/conduit/actions/workflows/ci.yml/badge.svg)](https://github.com/anee769/conduit/actions/workflows/ci.yml)
+
 On-prem middleware between a company's apps / AI coding assistants and LLM
 providers — for **cost visibility, budget enforcement, and governance** over
 LLM spend. See [`MVP_SPEC.md`](MVP_SPEC.md) for the full product spec.
@@ -55,6 +57,30 @@ Unit: crypto, key hashing, usage parsing, cache-key normalization, period
 buckets, **governance secrets scan**. System (live stack): health/ready/metrics,
 auth, allow-list, metering→ClickHouse, cache hit/miss, budget 402, rate-limit 429,
 **governance alert + category recording + secret-never-stored**, admin API + key revocation.
+
+## Development flow
+
+Branches: feature work → PR into **`dev`** → PR from `dev` into **`master`**.
+
+- **`master`** is the always-green release branch.
+- **`dev`** is the integration branch.
+- CI (`.github/workflows/ci.yml`) runs on **every PR** (both hops) and on pushes
+  to `dev`/`master`: workspace typecheck + the full 59-test suite against a live,
+  mock-backed stack. **Only merge a PR when its CI check is green.**
+
+```bash
+git checkout dev && git pull
+git checkout -b feat/my-change          # branch off dev
+# …commit work…
+git push -u origin feat/my-change
+gh pr create --base dev                  # PR into dev (CI runs)
+# after review/green: merge, then promote dev → master:
+gh pr create --base master --head dev    # PR into master (CI runs again)
+```
+
+> On a free private repo GitHub can't *enforce* "CI must pass before merge"
+> (that needs GitHub Pro rulesets). The check is advisory here — discipline is to
+> merge only on green. Upgrading unlocks one-command server-side enforcement.
 
 ## Stack
 
