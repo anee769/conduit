@@ -2,18 +2,78 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
 
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  # Fast feedback: typecheck the whole workspace + run the pure-logic unit tests.
+  # No datastores, no services.
+  unit:
+    name: typecheck + unit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-      - run: corepack enable
+          node-version: 22
+          cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm build
+      - run: pnpm -r typecheck
+      - run: pnpm --filter @finops/tests test:unit
+
+  # Full suite against a live, mock-backed stack — the same flow as
+  # scripts/run-tests.sh (datastores -> migrate -> seed -> mock+gateway+control-plane).
+  system:
+    name: unit + system (live stack)
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_PROJECT_NAME: conduit
+      POSTGRES_URL: postgres://finops:finops@localhost:5432/finops
+      CLICKHOUSE_URL: http://finops:finops@localhost:8123/finops
+      REDIS_URL: redis://localhost:6379
+      # CI-only test key (a real 32-byte base64 value; the placeholder is rejected).
+      # Not a secret — it seals nothing but throwaway CI credentials.
+      MASTER_ENCRYPTION_KEY: zz0Axol0oON1LkpeGBgQwzY77AB5Y7grdqCQm/WQ+PE=
+      # Set so the admin-gated paths (audit export, /admin/reload) are exercised.
+      ADMIN_TOKEN: ci-admin-token
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Start datastores and wait for health
+        run: |
+          docker compose up -d
+          for svc in postgres clickhouse redis; do
+            ok=0
+            for _ in $(seq 1 60); do
+              status="$(docker inspect -f '{{.State.Health.Status}}' "conduit-${svc}-1" 2>/dev/null || echo missing)"
+              if [ "$status" = "healthy" ]; then ok=1; break; fi
+              sleep 2
+            done
+            if [ "$ok" -ne 1 ]; then
+              echo "::error::datastore '$svc' never became healthy"; docker compose ps; exit 1
+            fi
+            echo "$svc healthy"
+          done
+
+      - name: Run unit + system suite
+        run: bash scripts/run-tests.sh
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: |
+          echo '-- gateway --'; tail -n 100 /tmp/finops-gateway.log 2>/dev/null || true
+          echo '-- control-plane --'; tail -n 100 /tmp/finops-cp.log 2>/dev/null || true
+          echo '-- mock --'; tail -n 50 /tmp/finops-mock.log 2>/dev/null || true
+          docker compose ps || true
