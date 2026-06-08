@@ -96,11 +96,17 @@ export async function initUsageSchema(): Promise<void> {
       ttft_ms         Nullable(UInt32),
       cache_hit       UInt8,
       error_code      Nullable(String),
-      request_id      Nullable(String)
+      request_id      Nullable(String),
+      governance_flagged    UInt8 DEFAULT 0,
+      governance_categories Array(String) DEFAULT []
     )
     ENGINE = MergeTree()
     PARTITION BY toYYYYMM(ts)
     ORDER BY (org_id, ts)
   `);
+  // Backward-compatible column adds for tables created before governance (M-gov).
+  // ALTER ... ADD COLUMN IF NOT EXISTS is a no-op when the column already exists.
+  await chExec(`ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS governance_flagged UInt8 DEFAULT 0`);
+  await chExec(`ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS governance_categories Array(String) DEFAULT []`);
   logger.info("usage_events schema ready");
 }

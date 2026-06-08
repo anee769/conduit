@@ -42,6 +42,10 @@ export const UsageEvent = z.object({
   cacheHit: z.boolean(),
   errorCode: z.string().nullable(),
   requestId: z.string().nullable(),
+  // Data governance (Phase 2): did the T1 secrets scan flag this request, and
+  // which categories. Categories ONLY — never the matched value (no-body rule).
+  governanceFlagged: z.boolean().default(false),
+  governanceCategories: z.array(z.string()).default([]),
 });
 export type UsageEvent = z.infer<typeof UsageEvent>;
 

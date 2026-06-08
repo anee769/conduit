@@ -3,6 +3,7 @@ import type { Context } from "hono";
 import pino from "pino";
 import { loadPricing } from "../metering/pricing";
 import { loadBudgetCache } from "../budget/enforce";
+import { reloadGovernance } from "../governance/policy";
 
 const logger = pino({ name: "admin" });
 
@@ -25,6 +26,7 @@ function authed(c: Context): boolean {
 adminRoutes.post("/admin/reload", async (c) => {
   if (!authed(c)) return c.json({ error: "admin authentication required" }, 401);
   await Promise.all([loadPricing(), loadBudgetCache()]);
-  logger.info("config reloaded (pricing + budgets)");
+  reloadGovernance();
+  logger.info("config reloaded (pricing + budgets + governance)");
   return c.json({ reloaded: true });
 });

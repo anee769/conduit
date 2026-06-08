@@ -62,11 +62,20 @@ services:
       PORT: "4000"
       FAIL_MODE: open
       MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY:-change-me-generate-a-32-byte-key}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       POSTGRES_URL: postgres://finops:finops@postgres:5432/finops
       CLICKHOUSE_URL: http://finops:finops@clickhouse:8123/finops
       REDIS_URL: redis://redis:6379
       UPSTREAM_ANTHROPIC_URL: https://api.anthropic.com
       UPSTREAM_OPENAI_URL: https://api.openai.com
+      # Data governance (T1 secrets scan). Promote categories to block one at a
+      # time via GOVERNANCE_BLOCK_CATEGORIES while the global mode stays alert.
+      GOVERNANCE_ENABLED: ${GOVERNANCE_ENABLED:-on}
+      GOVERNANCE_MODE: ${GOVERNANCE_MODE:-alert}
+      GOVERNANCE_BLOCK_CATEGORIES: ${GOVERNANCE_BLOCK_CATEGORIES:-}
+      # Optional Bedrock/Azure defaults for the provider adapters.
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2024-10-21}
     ports:
       - "4000:4000"
     depends_on:
@@ -83,6 +92,12 @@ services:
       POSTGRES_URL: postgres://finops:finops@postgres:5432/finops
       CLICKHOUSE_URL: http://finops:finops@clickhouse:8123/finops
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-}
+      DASHBOARD_SECRET: ${DASHBOARD_SECRET:-}
+      # Mirror the gateway's governance policy so the dashboard can show which
+      # categories are blocking vs only alerting.
+      GOVERNANCE_MODE: ${GOVERNANCE_MODE:-alert}
+      GOVERNANCE_BLOCK_CATEGORIES: ${GOVERNANCE_BLOCK_CATEGORIES:-}
     ports:
       - "3000:3000"
     depends_on:

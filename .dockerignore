@@ -1,0 +1,27 @@
+# Never copy host install artifacts into the build context — pnpm's workspace
+# node_modules are absolute symlinks that are invalid inside the container and
+# collide with the in-image `pnpm install`. The image installs deps fresh.
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+
+# VCS + local junk
+.git
+.gitignore
+**/.DS_Store
+
+# Local env / secrets must never bake into an image
+.env
+.env.*
+!.env.example
+
+# Tests + ops not needed in the runtime images
+tests
+ops
+scripts/*.ps1
+
+# Editor / misc
+.vscode
+.idea
+*.log

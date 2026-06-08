@@ -46,6 +46,8 @@ function toRow(e: UsageEvent): Record<string, unknown> {
     cache_hit: e.cacheHit ? 1 : 0,
     error_code: e.errorCode,
     request_id: e.requestId,
+    governance_flagged: e.governanceFlagged ? 1 : 0,
+    governance_categories: e.governanceCategories,
   };
 }
 

@@ -61,6 +61,15 @@ export const rateLimited = new Counter({
   registers: [registry],
 });
 
+// Data governance: requests where the T1 secrets scan detected sensitive data,
+// by provider, category, and action taken (alert|block). Phase 2.
+export const governanceFlags = new Counter({
+  name: "gateway_governance_flags_total",
+  help: "Requests where governance detected sensitive data, by provider, category and action.",
+  labelNames: ["provider", "category", "action"] as const,
+  registers: [registry],
+});
+
 export const metricsRoutes = new Hono();
 
 metricsRoutes.get("/metrics", async (c) => {

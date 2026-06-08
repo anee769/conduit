@@ -258,6 +258,10 @@ CREATE TABLE usage_events (
   ttft_ms          UInt32,                   -- time to first token (streaming)
   cache_hit        UInt8,
   error_code       LowCardinality(String),
+  -- Data governance (Phase 2, IMPLEMENTED): did the T1 secrets scan flag this
+  -- request, and which categories. Categories ONLY — never the matched value.
+  governance_flagged    UInt8 DEFAULT 0,
+  governance_categories Array(String) DEFAULT [],
   -- OPTIONAL, OFF BY DEFAULT, policy-gated:
   prompt_redacted  String DEFAULT '',
   completion_redacted String DEFAULT '',
@@ -293,6 +297,9 @@ FROM usage_events GROUP BY org_id, team_id, model, day;
 4. budget check: read Redis counter for scope; if hard_cap exceeded → 429 + block
    (soft over-threshold → allow + queue alert)                        [fail-open on store error]
 5. rate limit: token bucket in Redis
+5b. data governance (Phase 2): scan body for secrets → alert (record category +
+    forward) or block (451). Category recorded, NEVER the value. Before cache so a
+    flagged/blocked request is never cached or served from cache.
 6. exact-match cache: hash(model+normalized messages) → Redis GET      [MVP cache]
    - hit → return cached, emit cache_hit event, ZERO upstream cost
 7. resolve provider_credential, decrypt key in memory
@@ -317,7 +324,7 @@ Because buyers run **Claude Code / Codex writing proprietary code through this**
 5. **Tenant isolation** enforced at query layer (every query scoped by `org_id`); even on-prem keeps the boundary.
 6. **Immutable audit log** of admin actions (SOC2/ISO evidence later).
 7. **Fail-open is a security *availability* choice**, but hard-cap budgets and key revocation are fail-closed by design.
-8. **PII/secret redaction** (Phase 2) for the optional body-logging path — detect API keys/credentials in prompts and block/redact (directly addresses the "trading algo leaked to AI" incident class).
+8. **Secret/PII governance (Phase 2 — T1 IMPLEMENTED).** Every request is scanned for high-confidence secrets (API keys, tokens, private keys) *before* it leaves the perimeter; alert or block (451), with the matched **category** recorded and the value never stored. Directly addresses the "trading algo / credentials leaked to AI" incident class. Tier 2 (per-org contextual entities) is built against a design partner's real traffic. **Why on-prem matters:** contextual inspection requires reading the body — only legitimate when it never crosses the perimeter, which a SaaS proxy cannot promise.
 9. **Supply-chain hygiene:** pinned deps, SBOM, minimal base images (distroless), no telemetry phone-home unless opt-in.
 
 ---
@@ -352,8 +359,18 @@ Because buyers run **Claude Code / Codex writing proprietary code through this**
 
 **→ Usable design-partner MVP in ~8–12 weeks of focused solo work.** First customer target: a team inside a regulated org (e.g. a finance/brokerage dev team using AI coding assistants).
 
-**Phase 2 (post-validation):** semantic caching, PII/secret redaction + guardrails, RBAC/SSO, multi-tenant SaaS, audit/compliance reports.
-**Phase 3:** smart model routing/auto-downgrade, SaaS-seat (ChatGPT/Claude Desktop) spend ingestion, forecasting, savings analytics.
+| P2.1 | Governance T1 + dashboard auth | Secrets scan (alert/block, category-only) at step 5b; `gateway_governance_flags_total`; dashboard panel; password gate (`DASHBOARD_PASSWORD`) | ✅ done |
+
+**Phase 2 (governance-first ordering — see §11 for the strategic reframe):**
+1. ✅ **T1 secrets scan + dashboard auth (DONE).**
+2. **T2 contextual governance** — per-org sensitive entities, built against a design
+   partner's real traffic; alert-only → promote-to-block + false-positive feedback loop.
+3. RBAC + SSO/SAML (full); semantic caching (opt-in, conservative thresholds);
+   prompt-cache pass-through (convenience + a number, not a moat — caching is provider-side);
+   multi-tenant SaaS; audit/compliance reports.
+
+**Phase 3:** smart model routing/auto-downgrade, SaaS-seat spend ingestion, forecasting,
+savings analytics. **NOT context pruning at the gateway** (breaks caching, risks context rot — see §11).
 
 ---
 
@@ -382,9 +399,37 @@ Because buyers run **Claude Code / Codex writing proprietary code through this**
 | Semantic cache | Paraphrased/similar prompts hit cache (embedding cost only) | 30–70% repetitive | **Phase 2** |
 | Secret/PII redaction | NOT a cost saver — the governance half that lets security *approve* coding agents at all | enables adoption | **Phase 2** |
 | Smart routing / auto-downgrade | Cheap model for simple steps (lint/rename/summarize), expensive only for hard reasoning | 20–40% | **Phase 3** |
-| Context pruning / compression | Trim redundant re-sent context before it hits the provider | 10–30% | **Phase 3** |
+| Context pruning / compression | Trim redundant re-sent context before it hits the provider | 10–30% | ~~Phase 3~~ **dropped at gateway** (see below) |
 
-**Narrative:** *MVP shows them the bleeding → Phase 2 stops it (prompt-cache + semantic cache are the headline coding savings) → Phase 3 optimizes it.* The Phase-2 secret-redaction piece is governance, not cost — but it's what makes a finance security team allow coding agents in the first place.
+**Narrative:** *MVP shows them the bleeding → Phase 2 stops it → Phase 3 optimizes it.* The Phase-2 secret-governance piece is governance, not cost — but it's what makes a finance security team allow coding agents in the first place.
+
+### 11.1 Strategic reframe (2026-06): governance is the wedge, cost is table-stakes
+
+Stress-test every feature with one question — *who can do this without a gateway?*
+Every **cost** lever fails the test: prompt caching and batch discounts are
+**provider-side** (the client just opts in); context optimization is **client/agent-side**.
+A buyer can DIY any of them. The **defensible** half — budgets, allow-lists, credential
+security, and above all **contextual data governance** — requires an *unbypassable
+org-level chokepoint*. Governance is the one capability that is **both** impossible
+without a gateway **and** impossible from a *SaaS* gateway (the data can't leave the
+perimeter to be inspected). With Harness now shipping a competing gateway (on-prem
+too), cost parity is assumed; **on-prem contextual governance is the differentiation.**
+→ Lead the product and the pitch with governance; let cost be the CFO-friendly wrapper.
+
+### 11.2 Why context optimization is NOT a gateway feature (two research findings)
+
+1. **Caching and pruning conflict.** Prompt caching needs a *byte-identical prefix* for
+   the ~10× discount; any prune/reorder invalidates the cache. Optimizing context erodes
+   the bigger, safer lever (caching). *(arxiv 2601.06007, "Don't Break the Cache".)*
+2. **Context rot.** Models degrade as context grows — *focused, relevant-only* context
+   beats full context carrying the same answer. Avoiding rot needs knowing what's
+   *relevant*, which only the agent knows; a gateway pruning blind would cause the very
+   failure it's trying to avoid. *(Chroma context-rot research, 2025.)*
+
+Both point the same way: **context optimization belongs in the client/agent, not the
+proxy.** The gateway's only safe cost play is **prompt-cache pass-through** — additive
+(adds a caching hint, removes nothing), so it preserves the prefix and the
+quality-neutral promise — and even that is a convenience + a dashboard number, not a moat.
 
 ---
 

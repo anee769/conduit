@@ -41,25 +41,36 @@ trap cleanup EXIT
 
 listening() { lsof -iTCP:"$1" -sTCP:LISTEN -t >/dev/null 2>&1; }
 
+# Take FULL ownership of the stack ports. We start a fresh, isolated, mock-backed
+# stack so the suite never runs against a real-Anthropic gateway (a `pnpm dev:real`
+# on :4000 would reject the test credential "sk-test-key" → 401) or a stale mock.
+#
+# Note: `pnpm dev` runs its services under `concurrently --kill-others-on-fail`,
+# so killing ONE of its ports (e.g. :4000) cascades and tears down the others
+# (mock :8787, dashboard :3000). We therefore kill all three up front and sleep
+# to let any such cascade settle BEFORE starting our own — otherwise a late
+# cascade would kill a service we just launched (symptom: ECONNREFUSED 8787).
+for port in 4000 8787 3000; do
+  if listening "$port"; then
+    echo "Reclaiming port :$port for an isolated test stack…"
+    lsof -ti TCP:"$port" -sTCP:LISTEN | xargs kill -9 2>/dev/null || true
+  fi
+done
+sleep 2
+
 # Mock upstream.
-if ! listening 8787; then
-  pnpm --filter @finops/gateway mock >/tmp/finops-mock.log 2>&1 &
-  PIDS+=($!)
-fi
+pnpm --filter @finops/gateway mock >/tmp/finops-mock.log 2>&1 &
+PIDS+=($!)
 
 # Gateway (pointed at the mock).
 export UPSTREAM_ANTHROPIC_URL="http://127.0.0.1:8787"
 export UPSTREAM_OPENAI_URL="http://127.0.0.1:8787"
-if ! listening 4000; then
-  pnpm --filter @finops/gateway start >/tmp/finops-gateway.log 2>&1 &
-  PIDS+=($!)
-fi
+pnpm --filter @finops/gateway start >/tmp/finops-gateway.log 2>&1 &
+PIDS+=($!)
 
 # Control plane.
-if ! listening 3000; then
-  pnpm --filter @finops/control-plane dev >/tmp/finops-cp.log 2>&1 &
-  PIDS+=($!)
-fi
+pnpm --filter @finops/control-plane dev >/tmp/finops-cp.log 2>&1 &
+PIDS+=($!)
 
 # Wait for readiness.
 for u in "http://localhost:4000/health" "http://localhost:3000/api/usage"; do

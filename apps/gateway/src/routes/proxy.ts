@@ -5,10 +5,10 @@ import pino from "pino";
 import type { RequestType, UsageEvent, UsageStatus } from "@finops/types";
 import {
   lookupVirtualKey,
-  getProviderCredential,
   touchVirtualKeyLastUsed,
 } from "@finops/db";
 import { config } from "../config";
+import { adapterFor, resolveCredential } from "../adapters";
 import {
   proxyRequests,
   proxyLatency,
@@ -17,7 +17,10 @@ import {
   cacheHits,
   cacheSavings,
   rateLimited,
+  governanceFlags,
 } from "./metrics";
+import { scanSecrets, categoriesOf } from "../governance/scan";
+import { governanceConfig, effectiveAction } from "../governance/policy";
 import { parseUsage } from "../metering/usage";
 import { costFor } from "../metering/pricing";
 import { enqueueUsage } from "../metering/buffer";
@@ -48,6 +51,7 @@ type MeterCtx = {
   status: UsageStatus;
   requestId: string | null;
   cacheKey?: string | null;
+  governanceCategories?: string[];
 };
 
 /** Build + enqueue a usage event. Fire-and-forget; never on the client path. */
@@ -74,6 +78,8 @@ function record(ctx: MeterCtx, u: { inputTokens: number; outputTokens: number; c
     cacheHit: ctx.status === "cache_hit", // exact-match response cache (M6)
     errorCode: ctx.status === "error" ? String(ctx.httpStatus) : null,
     requestId: ctx.requestId,
+    governanceFlagged: (ctx.governanceCategories?.length ?? 0) > 0,
+    governanceCategories: ctx.governanceCategories ?? [],
   };
   enqueueUsage(event);
 
@@ -141,12 +147,15 @@ async function meterStream(
 type UpstreamProvider = "anthropic" | "openai";
 
 // Hop-by-hop headers must not cross a proxy (RFC 7230 §6.1). content-length is
-// dropped so fetch recomputes it; content-encoding is preserved so the client
-// keeps decoding the streamed bytes.
+// dropped so fetch recomputes it; content-encoding is stripped because Node's
+// undici fetch decompresses the upstream response body automatically — passing
+// the header through with an already-decompressed body causes clients to try a
+// second round of decompression (Z_DATA_ERROR / TypeError: terminated).
 const HOP_BY_HOP = new Set([
   "host",
   "connection",
   "content-length",
+  "content-encoding",
   "keep-alive",
   "transfer-encoding",
   "upgrade",
@@ -161,32 +170,6 @@ function extractToken(c: Context): string | null {
   const xApiKey = c.req.header("x-api-key");
   if (xApiKey) return xApiKey.trim();
   return null;
-}
-
-/**
- * Build the upstream request headers: forward the client's headers, but DROP
- * their auth (the virtual key) and INJECT the real, decrypted provider key.
- * Clients therefore never hold a raw provider credential.
- */
-function buildUpstreamHeaders(
-  incoming: Record<string, string>,
-  provider: UpstreamProvider,
-  realKey: string,
-): Headers {
-  const out = new Headers();
-  for (const [key, value] of Object.entries(incoming)) {
-    const lower = key.toLowerCase();
-    if (HOP_BY_HOP.has(lower)) continue;
-    if (lower === "authorization" || lower === "x-api-key") continue;
-    out.set(key, value);
-  }
-  if (provider === "anthropic") {
-    out.set("x-api-key", realKey);
-    if (!out.has("anthropic-version")) out.set("anthropic-version", "2023-06-01");
-  } else {
-    out.set("authorization", `Bearer ${realKey}`);
-  }
-  return out;
 }
 
 function stripResponseHeaders(source: Headers): Headers {
@@ -224,11 +207,14 @@ async function forward(c: Context, provider: UpstreamProvider) {
     );
   }
 
-  // 2. Read body once; peek the model (metadata only — body is not persisted).
+  // 2. Read body once; peek the model + stream flag (metadata only — body is not persisted).
   const rawBody = await c.req.arrayBuffer();
   let model = "unknown";
+  let wantsStream = false;
   try {
-    model = JSON.parse(new TextDecoder().decode(rawBody))?.model ?? "unknown";
+    const parsed = JSON.parse(new TextDecoder().decode(rawBody));
+    model = parsed?.model ?? "unknown";
+    wantsStream = parsed?.stream === true;
   } catch {
     /* non-JSON body */
   }
@@ -308,6 +294,54 @@ async function forward(c: Context, provider: UpstreamProvider) {
     );
   }
 
+  // 3d. Data governance (Phase 2). Scan the request body for high-confidence
+  // secrets BEFORE it can leave the perimeter for the provider. Runs after the
+  // cheaper policy checks (don't pay the scan on a request we'd reject anyway)
+  // and before the cache (a flagged/blocked request must not be cached/served).
+  // PRIVACY: only categories are recorded — never the matched value.
+  let govCategories: string[] = [];
+  const gov = governanceConfig();
+  if (gov.enabled && rawBody.byteLength > 0) {
+    const hits = scanSecrets(new TextDecoder().decode(rawBody));
+    if (hits.length > 0) {
+      govCategories = categoriesOf(hits);
+      // Per-request action: block if the global mode is block OR any hit category
+      // has been promoted to block (the alert→block feedback loop).
+      const action = effectiveAction(govCategories);
+      for (const cat of govCategories) {
+        governanceFlags.inc({ provider, category: cat, action });
+      }
+      logger.warn(
+        { vkId: vk.id, orgId: vk.orgId, categories: govCategories, action },
+        "governance: sensitive data detected in request",
+      );
+      if (action === "block") {
+        proxyRequests.inc({ provider, status: "451" });
+        record(
+          {
+            provider, model, requestType,
+            orgId: vk.orgId, teamId: vk.teamId, vkId: vk.id,
+            start, httpStatus: 451, status: "blocked", requestId: null,
+            governanceCategories: govCategories,
+          },
+          { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
+          Date.now() - start,
+          null,
+        );
+        return c.json(
+          {
+            error: {
+              message: `request blocked by data governance policy (detected: ${govCategories.join(", ")})`,
+              type: "governance_blocked",
+            },
+          },
+          451,
+        );
+      }
+      // alert mode: fall through — the request proceeds, the flag is recorded.
+    }
+  }
+
   // 3c. Exact-match cache lookup (M6). Enforced AFTER auth/allow-list/budget so
   // a cache hit can never bypass policy. A hit serves the stored body with a
   // cache header, records a cache_hit event (zero cost), and skips the upstream.
@@ -323,6 +357,7 @@ async function forward(c: Context, provider: UpstreamProvider) {
           provider, model, requestType,
           orgId: vk.orgId, teamId: vk.teamId, vkId: vk.id,
           start, httpStatus: hit.status, status: "cache_hit", requestId: null,
+          governanceCategories: govCategories,
         },
         {
           inputTokens: hit.inputTokens, outputTokens: hit.outputTokens,
@@ -338,10 +373,12 @@ async function forward(c: Context, provider: UpstreamProvider) {
     }
   }
 
-  // 4. Resolve + decrypt the org's provider credential.
+  // 4. Resolve + decrypt the org's upstream credential. `provider` is the client
+  // API family (anthropic | openai); the resolver picks the actual provider —
+  // preferring a perimeter provider (Bedrock / Azure) when one is configured.
   let cred;
   try {
-    cred = await getProviderCredential(vk.orgId, provider);
+    cred = await resolveCredential(vk.orgId, provider);
   } catch (err) {
     logger.error({ err: String(err) }, "provider credential lookup failed");
     return c.json({ error: { message: "credential backend unavailable" } }, 503);
@@ -354,18 +391,50 @@ async function forward(c: Context, provider: UpstreamProvider) {
     );
   }
 
-  // 5. Forward to the upstream, injecting the real provider key.
-  const baseUrl = cred.baseUrl ?? config.upstreams[provider];
+  // 5. Forward to the upstream via the provider adapter (URL + auth + any body
+  // rewrite). The meter provider stays the family — Azure meters as OpenAI,
+  // Bedrock as Anthropic — so the rest of the hot path doesn't branch on this.
+  const adapter = adapterFor(cred.providerKind);
   const incoming = new URL(c.req.url);
-  const target = new URL(incoming.pathname + incoming.search, baseUrl);
-  const headers = buildUpstreamHeaders(c.req.header(), provider, cred.apiKey);
+  const upstreamReq = {
+    method: c.req.method,
+    pathname: incoming.pathname,
+    search: incoming.search,
+    model,
+    headers: c.req.header(),
+    body: rawBody,
+    stream: wantsStream,
+  };
+
+  if (wantsStream && !adapter.supportsStreaming(upstreamReq)) {
+    proxyRequests.inc({ provider, status: "400" });
+    logger.warn({ provider, providerKind: cred.providerKind, model }, "streaming not supported for provider");
+    return c.json(
+      {
+        error: {
+          message: `streaming is not yet supported via ${cred.providerKind}; retry with "stream": false`,
+          type: "unsupported_request",
+        },
+      },
+      400,
+    );
+  }
+
+  let prepared;
+  try {
+    prepared = adapter.prepare(cred, upstreamReq, config.upstreams[provider]);
+  } catch (err) {
+    proxyRequests.inc({ provider, status: "error" });
+    logger.error({ err: String(err), providerKind: cred.providerKind }, "adapter prepare failed");
+    return c.json({ error: { message: "upstream credential misconfigured", provider } }, 502);
+  }
 
   let upstream: Response;
   try {
-    upstream = await fetch(target, {
+    upstream = await fetch(prepared.url, {
       method: c.req.method,
-      headers,
-      body: rawBody.byteLength > 0 ? rawBody : undefined,
+      headers: prepared.headers,
+      body: prepared.body,
     });
   } catch (err) {
     const latencyMs = Date.now() - start;
@@ -411,6 +480,7 @@ async function forward(c: Context, provider: UpstreamProvider) {
     status: upstream.ok ? "success" : "error",
     requestId: upstream.headers.get("request-id") ?? upstream.headers.get("x-request-id"),
     cacheKey, // populate the cache from this response when it streams clean
+    governanceCategories: govCategories,
   };
   const contentType = upstream.headers.get("content-type") ?? "";
   // Tell clients whether this was served fresh (a hit returns earlier).

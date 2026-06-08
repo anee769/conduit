@@ -4,12 +4,15 @@ On-prem middleware between a company's apps / AI coding assistants and LLM
 providers — for **cost visibility, budget enforcement, and governance** over
 LLM spend. See [`MVP_SPEC.md`](MVP_SPEC.md) for the full product spec.
 
-> **Status:** Phase-1 MVP feature-complete (M1–M8). A virtual-key data plane
-> that **meters** every request (token/cost → ClickHouse, off the hot path via a
-> tee'd stream), **enforces** model allow-lists, per-key rate limits, and live
-> spend budgets (Redis; hard caps fail closed → 402), serves an **exact-match
-> cache** (free repeats), and ships a **dashboard + admin API + first-run
-> wizard**. Privacy-first: metadata only, never prompts/completions.
+> **Status:** Phase-1 MVP feature-complete (M1–M8) + Phase-2 governance started.
+> A virtual-key data plane that **meters** every request (token/cost → ClickHouse,
+> off the hot path via a tee'd stream), **enforces** model allow-lists, per-key
+> rate limits, and live spend budgets (Redis; hard caps fail closed → 402), serves
+> an **exact-match cache** (free repeats), runs a **data-governance secrets scan**
+> (detect API keys / tokens / private keys leaving the perimeter — alert or block),
+> and ships a **dashboard (password-gated) + admin API + first-run wizard**.
+> Privacy-first: metadata only, never prompts/completions — and the governance
+> scan records the matched *category* only, never the secret value.
 
 ### Milestones
 - **M1** transparent streaming proxy · **M2** virtual keys + encrypted creds
@@ -19,23 +22,39 @@ LLM spend. See [`MVP_SPEC.md`](MVP_SPEC.md) for the full product spec.
 - **M6** exact-match cache (`x-finops-cache`, `cache_hit` accounting) + per-key rate limiting
 - **M7** ops hardening (`FAIL_MODE` switch, `support-bundle`, Grafana + Prometheus in [`ops/`](ops/))
 - **M8** admin REST API + first-run setup wizard (`/setup`) + Docker images & compose `app` profile
+- **Phase 2 (in progress)** —
+  - data-governance T1 secrets scan (alert/block, category-only, `451` on block) + dashboard password gate
+  - **per-key/per-model cost attribution** + **exportable audit log** (`/api/audit`, CSV/JSON, metadata-only, gated)
+  - **provider adapters** — sit in front of **AWS Bedrock (SigV4)** or **Azure OpenAI** with no client change
+  - **governance alert→block feedback loop** — promote categories to block via `GOVERNANCE_BLOCK_CATEGORIES`
 
 ### Run it
+
+**Full from-zero guide: [`INSTALL.md`](INSTALL.md)** (Docker or local dev, ~5 min).
+
+Quick version (all-Docker):
 ```bash
-pnpm --filter @finops/db seed-pricing                  # load the price book
-pnpm --filter @finops/control-plane dev                # dashboard + /setup wizard :3000
-# full stack in containers:
-docker compose --profile app up --build
+cp .env.example .env                                   # then set MASTER_ENCRYPTION_KEY (openssl rand -base64 32)
+docker compose --profile app up -d --build             # datastores + gateway(:4000) + dashboard(:3000)
+docker exec conduit-gateway-1 pnpm --filter @finops/db db:migrate
+docker exec conduit-gateway-1 pnpm --filter @finops/db seed-pricing
+# → open http://localhost:3000/setup to create org → credential → team → virtual key
 ```
 
 ### Tests
 ```bash
-pwsh scripts/run-tests.ps1            # unit + live system suite (37 tests)
-pwsh scripts/run-tests.ps1 -UnitOnly  # pure-logic units, no stack needed
+bash scripts/run-tests.sh             # unit + live system suite (59 tests) — macOS/Linux
+bash scripts/run-tests.sh --unit-only # pure-logic units, no stack needed
+pwsh scripts/run-tests.ps1            # Windows equivalent
 ```
-Unit: crypto, key hashing, usage parsing, cache-key normalization, period buckets.
-System (live stack): health/ready/metrics, auth, allow-list, metering→ClickHouse,
-cache hit/miss, budget 402, rate-limit 429, admin API + key revocation.
+The bash runner takes full ownership of ports 4000/8787/3000 and starts an
+isolated, mock-backed stack (so it never runs against a real-Anthropic gateway).
+Don't run `pnpm dev` simultaneously — the runner will reclaim its ports.
+
+Unit: crypto, key hashing, usage parsing, cache-key normalization, period
+buckets, **governance secrets scan**. System (live stack): health/ready/metrics,
+auth, allow-list, metering→ClickHouse, cache hit/miss, budget 402, rate-limit 429,
+**governance alert + category recording + secret-never-stored**, admin API + key revocation.
 
 ## Stack
 

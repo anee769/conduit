@@ -10,6 +10,8 @@
   "scripts": {
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
+    "dev": "sh -c 'set -a; . ./.env; set +a; exec concurrently --names \"mock,gateway,dashboard\" --prefix-colors \"cyan,green,blue\" --kill-others-on-fail \"pnpm --filter @finops/gateway mock\" \"UPSTREAM_ANTHROPIC_URL=http://127.0.0.1:8787 UPSTREAM_OPENAI_URL=http://127.0.0.1:8787 pnpm --filter @finops/gateway start\" \"pnpm --filter @finops/control-plane dev\"'",
+    "dev:real": "sh -c 'set -a; . ./.env; set +a; exec concurrently --names \"gateway,dashboard\" --prefix-colors \"green,blue\" --kill-others-on-fail \"pnpm --filter @finops/gateway start\" \"pnpm --filter @finops/control-plane dev\"'",
     "dev:gateway": "pnpm --filter @finops/gateway dev",
     "dev:control-plane": "pnpm --filter @finops/control-plane dev",
     "compose:up": "docker compose up -d",
@@ -17,6 +19,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "concurrently": "^10.0.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

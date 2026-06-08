@@ -30,14 +30,29 @@ export default function SetupWizard() {
     [adminToken],
   );
 
+  const [connected, setConnected] = useState(false);
+
   const refresh = useCallback(async () => {
     try {
       const r = await fetch("/api/admin/setup-status", { headers: headers(), cache: "no-store" });
-      if (r.status === 401) { setErr("Admin token required."); return; }
+      if (r.status === 401) { setErr("Admin token required."); setConnected(false); return; }
       setErr(null);
+      setConnected(true);
       setStatus(await r.json());
-    } catch (e) { setErr(String(e)); }
+    } catch (e) { setErr(String(e)); setConnected(false); }
   }, [headers]);
+
+  // Load a previously-entered admin token so it survives reloads.
+  useEffect(() => {
+    const saved = window.localStorage.getItem("finops_admin_token");
+    if (saved) setAdminToken(saved);
+  }, []);
+
+  // Persist the token whenever it changes (cleared field → forget it).
+  useEffect(() => {
+    if (adminToken) window.localStorage.setItem("finops_admin_token", adminToken);
+    else window.localStorage.removeItem("finops_admin_token");
+  }, [adminToken]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -91,11 +106,14 @@ export default function SetupWizard() {
       {err && <div className="card error">{err}<div className="muted" style={{ marginTop: 6 }}>If ADMIN_TOKEN is set on the server, paste it below.</div></div>}
 
       <section className="card">
-        <h2>Admin token (only if ADMIN_TOKEN is set)</h2>
+        <h2>Admin token {connected ? <span className="good">· connected ✓</span> : <span className="muted">(required if ADMIN_TOKEN is set)</span>}</h2>
         <div className="row">
-          <input className="in" placeholder="x-admin-token" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} />
+          <input className="in" type="password" placeholder="x-admin-token" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} />
           <button className="btn" onClick={() => void refresh()}>Connect</button>
         </div>
+        <p className="muted" style={{ marginTop: 8 }}>
+          Stored in this browser so it persists across reloads. It&apos;s the <code>ADMIN_TOKEN</code> value from your <code>.env</code>.
+        </p>
       </section>
 
       <section className="card">
