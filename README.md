@@ -72,10 +72,12 @@ Branches: feature work → PR into **`dev`** → PR from `dev` into **`master`**
 git checkout dev && git pull
 git checkout -b feat/my-change          # branch off dev
 # …commit work…
+bash scripts/ci-local.sh                 # run the SAME checks CI runs, before pushing
+#   (or: bash scripts/ci-local.sh --fast  → typecheck + unit only, no Docker)
 git push -u origin feat/my-change
-gh pr create --base dev                  # PR into dev (CI runs)
+gh pr create --base dev                   # PR into dev (CI runs)
 # after review/green: merge, then promote dev → master:
-gh pr create --base master --head dev    # PR into master (CI runs again)
+gh pr create --base master --head dev     # PR into master (CI runs again)
 ```
 
 > On a free private repo GitHub can't *enforce* "CI must pass before merge"
