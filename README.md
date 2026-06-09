@@ -59,6 +59,21 @@ buckets, **governance secrets scan**. System (live stack): health/ready/metrics,
 auth, allow-list, metering→ClickHouse, cache hit/miss, budget 402, rate-limit 429,
 **governance alert + category recording + secret-never-stored**, admin API + key revocation.
 
+## Security & supply chain
+
+Conduit runs **entirely in your own cloud** — no vendor in the request path, no
+phone-home, air-gappable. See **[`SECURITY.md`](SECURITY.md)** for the full
+whitepaper (data-flow diagram, what's stored, crypto, fail-closed auth, threat
+model) — the artifact that shortens a security review.
+
+- **Signed releases + SBOM:** the [release workflow](.github/workflows/release.yml)
+  publishes images to GHCR, signs them with Sigstore **cosign** (keyless), and
+  attaches a **CycloneDX SBOM** attestation. Generate an SBOM locally with
+  `bash scripts/sbom.sh`.
+- **Not OSS-on-your-egress-path:** why a regulated security team needs a supported,
+  compliance-ready control plane rather than self-hosted open source —
+  [`docs/conduit-vs-self-hosted-oss.md`](docs/conduit-vs-self-hosted-oss.md).
+
 ## Development flow
 
 Branches: feature work → PR into **`dev`** → PR from `dev` into **`master`**.
