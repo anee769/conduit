@@ -21,6 +21,11 @@ if [ -f .env ]; then
   set +a
 fi
 
+# The suite owns its governance posture: tests assert alert-mode behavior
+# (AWS key → forwarded + flagged), so an operator's demo .env (e.g. promoted
+# block categories) must never leak into the test gateway.
+export GOVERNANCE_ENABLED=on GOVERNANCE_MODE=alert GOVERNANCE_BLOCK_CATEGORIES=
+
 if [ "${1:-}" = "--unit-only" ]; then
   pnpm --filter @finops/tests test:unit
   exit $?
