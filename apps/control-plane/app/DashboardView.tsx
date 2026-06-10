@@ -46,10 +46,15 @@ export default function DashboardView(props: DashboardData) {
     <div className="app">
       <header className="appbar">
         <div className="brand">
-          <div className="logo">◆</div>
+          <div className="logo" aria-hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M5 5l6 7-6 7" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
+              <path d="M12 5l6 7-6 7" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
           <div>
-            <div className="brand-name">{org}</div>
-            <div className="brand-sub">AI FinOps Gateway · spend &amp; governance</div>
+            <div className="brand-name">Conduit</div>
+            <div className="brand-sub">{org} · AI gateway — spend &amp; governance</div>
           </div>
         </div>
         <nav className="windows">
@@ -87,7 +92,7 @@ export default function DashboardView(props: DashboardData) {
           <Overview summary={summary} timeseries={timeseries} maxDayCost={maxDayCost} days={days} />
         )}
         {tab === "Spend" && <Spend byModel={byModel} byTeam={byTeam} byKey={byKey} />}
-        {tab === "Governance" && <GovernanceTab governance={governance} />}
+        {tab === "Governance" && <GovernanceTab governance={governance} requests={summary.requests} />}
         {tab === "Budgets" && <Budgets budgets={budgets} />}
         {tab === "Activity" && <Activity recent={recent} days={days} />}
       </main>
@@ -99,15 +104,52 @@ export default function DashboardView(props: DashboardData) {
   );
 }
 
-function Kpi({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: "good" | "warn" }) {
+function Kpi({
+  label,
+  value,
+  sub,
+  tone,
+  spark,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  tone?: "good" | "warn";
+  spark?: number[];
+}) {
   return (
     <div className="card kpi">
       <span className="label">{label}</span>
       <span className={tone ? `value ${tone}` : "value"}>{value}</span>
       <span className="muted">{sub}</span>
+      {spark && spark.length > 1 && <Sparkline points={spark} />}
     </div>
   );
 }
+
+/** Tiny inline trend line for a KPI card (pure SVG, no deps). */
+function Sparkline({ points }: { points: number[] }) {
+  const w = 110;
+  const h = 26;
+  const max = Math.max(1e-9, ...points);
+  const step = w / (points.length - 1);
+  const xy = points.map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - (v / max) * (h - 4)).toFixed(1)}`);
+  const last = xy[xy.length - 1]!.split(",");
+  return (
+    <svg className="spark" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
+      <polyline points={xy.join(" ")} fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" opacity="0.85" />
+      <circle cx={last[0]} cy={last[1]} r="2.2" fill="var(--accent)" />
+    </svg>
+  );
+}
+
+/** Compact dollar label for chart annotations. */
+const usdShort = (v: number): string => {
+  if (v >= 100) return "$" + Math.round(v).toLocaleString();
+  if (v >= 1) return "$" + v.toFixed(2);
+  if (v >= 0.01) return "$" + v.toFixed(2);
+  return v > 0 ? "<$0.01" : "$0";
+};
 
 function Overview({
   summary,
@@ -123,7 +165,12 @@ function Overview({
   return (
     <>
       <section className="kpis">
-        <Kpi label="Total spend" value={usd(summary.costUsd)} sub={`${num(summary.requests)} requests`} />
+        <Kpi
+          label="Total spend"
+          value={usd(summary.costUsd)}
+          sub={`${num(summary.requests)} req · ${usdShort(summary.costUsd / Math.max(1, timeseries.length))}/day`}
+          spark={timeseries.map((d) => d.costUsd)}
+        />
         <Kpi label="Caching saved" value={usd(summary.cacheSavingsUsd)} sub={`${num(summary.cachedTokens)} cached tokens`} tone="good" />
         <Kpi label="Tokens" value={num(summary.inputTokens + summary.outputTokens)} sub={`${num(summary.inputTokens)} in · ${num(summary.outputTokens)} out`} />
         <Kpi label="Blocked" value={num(summary.blocked)} sub="policy / budget rejects" tone={summary.blocked ? "warn" : undefined} />
@@ -135,13 +182,26 @@ function Overview({
         {timeseries.length === 0 ? (
           <p className="muted">No requests in the last {days} days.</p>
         ) : (
-          <div className="chart">
-            {timeseries.map((d) => (
-              <div key={d.day} className="bar-col" title={`${d.day}: ${usd(d.costUsd)} · ${num(d.requests)} req`}>
-                <div className="bar" style={{ height: `${Math.max(2, (d.costUsd / maxDayCost) * 100)}%` }} />
-                <span className="bar-label">{d.day.slice(5)}</span>
-              </div>
-            ))}
+          <div className="chartbox">
+            <div className="ylabels" aria-hidden>
+              <span>{usdShort(maxDayCost)}</span>
+              <span>{usdShort(maxDayCost / 2)}</span>
+              <span>$0</span>
+            </div>
+            <div className="chart">
+              {timeseries.map((d) => (
+                <div key={d.day} className="bar-col" title={`${d.day}: ${usd(d.costUsd)} · ${num(d.requests)} req`}>
+                  {timeseries.length <= 20 && <span className="bar-val">{usdShort(d.costUsd)}</span>}
+                  {/* height scales against the PLOT area (column minus the two label rows),
+                      so a max-value bar tops out exactly at the max gridline */}
+                  <div
+                    className="bar"
+                    style={{ height: `max(3px, calc((100% - 2.75rem) * ${(d.costUsd / maxDayCost).toFixed(4)}))` }}
+                  />
+                  <span className="bar-label">{d.day.slice(5)}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </section>
@@ -149,7 +209,20 @@ function Overview({
   );
 }
 
+/** Share-of-total bar rendered inline in spend tables. */
+function Share({ value, total }: { value: number; total: number }) {
+  const pct = total > 0 ? (value / total) * 100 : 0;
+  return (
+    <td className="sharecell">
+      <div className="sharebar"><i style={{ width: `${Math.max(2, pct)}%` }} /></div>
+      <span className="sharepct">{pct.toFixed(0)}%</span>
+    </td>
+  );
+}
+
 function Spend({ byModel, byTeam, byKey }: { byModel: ModelRow[]; byTeam: TeamRow[]; byKey: KeyRow[] }) {
+  const modelTotal = byModel.reduce((s, m) => s + m.costUsd, 0);
+  const keyTotal = byKey.reduce((s, k) => s + k.costUsd, 0);
   return (
     <>
       <div className="cols">
@@ -157,16 +230,17 @@ function Spend({ byModel, byTeam, byKey }: { byModel: ModelRow[]; byTeam: TeamRo
           <h2>Spend by model</h2>
           <table>
             <thead>
-              <tr><th>Provider</th><th>Model</th><th className="r">Requests</th><th className="r">Cost</th></tr>
+              <tr><th>Provider</th><th>Model</th><th className="r">Requests</th><th className="r">Cost</th><th>Share</th></tr>
             </thead>
             <tbody>
               {byModel.map((m) => (
                 <tr key={`${m.provider}:${m.model}`}>
                   <td>{m.provider}</td><td>{m.model}</td>
                   <td className="r">{num(m.requests)}</td><td className="r">{usd(m.costUsd)}</td>
+                  <Share value={m.costUsd} total={modelTotal} />
                 </tr>
               ))}
-              {byModel.length === 0 && <tr><td colSpan={4} className="muted">No data.</td></tr>}
+              {byModel.length === 0 && <tr><td colSpan={5} className="muted">No data.</td></tr>}
             </tbody>
           </table>
         </section>
@@ -198,7 +272,7 @@ function Spend({ byModel, byTeam, byKey }: { byModel: ModelRow[]; byTeam: TeamRo
         </p>
         <table>
           <thead>
-            <tr><th>Virtual key</th><th>Prefix</th><th>Team</th><th className="r">Requests</th><th className="r">Cost</th></tr>
+            <tr><th>Virtual key</th><th>Prefix</th><th>Team</th><th className="r">Requests</th><th className="r">Cost</th><th>Share</th></tr>
           </thead>
           <tbody>
             {byKey.map((k) => (
@@ -208,9 +282,10 @@ function Spend({ byModel, byTeam, byKey }: { byModel: ModelRow[]; byTeam: TeamRo
                 <td>{k.teamName}</td>
                 <td className="r">{num(k.requests)}</td>
                 <td className="r">{usd(k.costUsd)}</td>
+                <Share value={k.costUsd} total={keyTotal} />
               </tr>
             ))}
-            {byKey.length === 0 && <tr><td colSpan={5} className="muted">No data.</td></tr>}
+            {byKey.length === 0 && <tr><td colSpan={6} className="muted">No data.</td></tr>}
           </tbody>
         </table>
       </section>
@@ -218,7 +293,8 @@ function Spend({ byModel, byTeam, byKey }: { byModel: ModelRow[]; byTeam: TeamRo
   );
 }
 
-function GovernanceTab({ governance }: { governance: Governance }) {
+function GovernanceTab({ governance, requests }: { governance: Governance; requests: number }) {
+  const pctOfTraffic = requests > 0 ? (governance.totalFlagged / requests) * 100 : 0;
   return (
     <section className="card">
       <div className="card-head">
@@ -227,10 +303,17 @@ function GovernanceTab({ governance }: { governance: Governance }) {
           global mode: {governance.mode}
         </span>
       </div>
+      {governance.totalFlagged > 0 && (
+        <p className="gov-stat">
+          <b>{num(governance.totalFlagged)}</b> flagged requests · <b>{pctOfTraffic.toFixed(1)}%</b> of traffic ·{" "}
+          <b>{governance.byCategory.length}</b> {governance.byCategory.length === 1 ? "category" : "categories"} — caught{" "}
+          <b>before</b> leaving the perimeter
+        </p>
+      )}
       <p className="muted" style={{ marginTop: -4 }}>
         Requests where sensitive data (secrets, keys, credentials) was detected before
         leaving for the provider. Categories only — the matched value is never stored.
-        Each category is either <b>blocking</b> (rejected with 451) or <b>alerting</b>
+        Each category is either <b>blocking</b> (rejected with 451) or <b>alerting</b>{" "}
         (forwarded + recorded). Watch the alerting categories, then promote the
         high-confidence ones to block via <code>GOVERNANCE_BLOCK_CATEGORIES</code>.
       </p>

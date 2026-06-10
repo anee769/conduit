@@ -101,6 +101,11 @@ pnpm --filter @finops/db seed-pricing
 Start the gateway and the dashboard in two terminals:
 
 ```bash
+# one-time: Next.js only auto-loads .env from the app directory, so link the
+# root .env into the control-plane (gitignored; without it the dashboard runs
+# with no DASHBOARD_PASSWORD / governance mirror in local dev)
+ln -sf ../../.env apps/control-plane/.env
+
 # terminal 1 — gateway on :4000
 pnpm --filter @finops/gateway start
 
