@@ -266,6 +266,17 @@ alert→promote-to-block as how governance actually ships.
 8. **T2 contextual governance** — per-org entities (customer names, codenames,
    revenue). "Classify the request, not the code." Build AGAINST a design partner's
    real traffic, alert-only first, then promote-to-block. NOT before a partner.
+9. **T1.5 structure-preserving substitution** — the productivity-preserving middle
+   path between `alert` (no protection) and `block` (451 kills the session). Swap
+   sensitive *values* (secrets, customer names, IDs) for structurally-valid fakes
+   before forwarding, keep a per-request mapping, and reverse-map the completion so
+   the user never sees REDACTED garbage. Field-validated as "what moved them from
+   banned to approved" (Reddit + competitor SHIM/getshim.tech). Two caveats kept
+   honest: (a) it protects *values in* the code, NOT the proprietary *logic* — for
+   logic-is-the-asset orgs, perimeter containment is still the only answer; (b) the
+   hard part is reconstruction inside a STREAMED completion (the tee sees fragments).
+   Our edge vs SHIM: do it **in-perimeter**, as one governance mode under the same
+   control plane (budgets/allow-lists/attribution/audit) — not a SaaS privacy bolt-on.
 
 **LATER:** Bedrock *streaming* (AWS event-stream framing); Google Vertex adapter
 (OAuth2); RBAC + SSO/SAML (Auth.js — when a buyer's review demands it); prompt-cache
