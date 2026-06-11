@@ -1,0 +1,319 @@
+<!doctype html>
+<!--
+  Conduit — design-partner landing page (single file, no build step).
+
+  ── BEFORE DEPLOYING, REPLACE THESE THREE PLACEHOLDERS ───────────────────────
+    1. CONTACT_EMAIL   — search "CONTACT_EMAIL"  (2 places: mailto links)
+    2. LOOM_URL        — search "LOOM_URL"       (1 place: demo button)
+    3. (optional) a Calendly/booking link if you prefer it over email
+  ── DEPLOY (any of these, ~2 minutes) ────────────────────────────────────────
+    Vercel:      `npx vercel site/` (or drag the folder into vercel.com/new)
+    Cloudflare:  Pages → Upload assets → drop this folder
+    Netlify:     app.netlify.com/drop → drop this folder
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Conduit — the AI gateway your security team can say yes to</title>
+<meta name="description" content="On-prem AI gateway for coding agents: per-engineer cost attribution, hard budgets, and egress governance — running entirely inside your own cloud. Your code, keys, and prompts never leave your perimeter." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #f6f8fb; --panel: #ffffff; --panel-2: #f1f4f9;
+    --line: #e3e8f0; --line-strong: #d3dae6;
+    --ink: #1a2230; --ink-soft: #4a5666; --ink-mute: #8a95a6;
+    --accent: #3b6ef5; --accent-soft: #eaf0ff;
+    --good: #0fa968; --good-soft: #e4f7ee;
+    --warn: #c98a04; --warn-soft: #fdf3da;
+    --bad: #e0453a; --bad-soft: #fdeceb;
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+    --shadow-lg: 0 12px 32px rgba(16,24,40,.10);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 1.5rem; }
+
+  /* nav */
+  nav { position: sticky; top: 0; z-index: 50; background: rgba(246,248,251,.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .nav-in { display: flex; align-items: center; justify-content: space-between; padding: .8rem 0; }
+  .brand { display: flex; align-items: center; gap: .65rem; font-weight: 800; font-size: 1.15rem; letter-spacing: -.01em; }
+  .logo { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: linear-gradient(135deg, var(--accent), #6f96f8); box-shadow: var(--shadow); }
+  .nav-links { display: flex; gap: 1.4rem; align-items: center; font-size: .9rem; }
+  .nav-links a { color: var(--ink-soft); text-decoration: none; font-weight: 500; }
+  .nav-links a:hover { color: var(--accent); }
+
+  .btn { display: inline-block; background: var(--accent); color: #fff; border: 1px solid var(--accent); border-radius: 9px; padding: .68rem 1.25rem; font-size: .95rem; font-weight: 600; text-decoration: none; transition: filter .12s ease, transform .12s ease; }
+  .btn:hover { filter: brightness(1.07); transform: translateY(-1px); }
+  .btn.ghost { background: var(--panel); color: var(--ink-soft); border-color: var(--line-strong); }
+  .btn.ghost:hover { color: var(--accent); border-color: var(--accent); filter: none; }
+  .btn.sm { padding: .5rem .95rem; font-size: .85rem; }
+
+  /* hero */
+  .hero { padding: 5rem 0 3.5rem; text-align: center; }
+  .chip { display: inline-flex; align-items: center; gap: .45rem; background: var(--accent-soft); color: var(--accent); border: 1px solid #c9d8fd; border-radius: 999px; padding: .35rem .9rem; font-size: .82rem; font-weight: 600; margin-bottom: 1.4rem; }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+  h1 { font-size: clamp(2rem, 5vw, 3.1rem); font-weight: 800; letter-spacing: -.03em; line-height: 1.12; max-width: 800px; margin: 0 auto .25em; }
+  .sub { font-size: 1.15rem; color: var(--ink-soft); max-width: 680px; margin: 0 auto 2rem; }
+  .sub b { color: var(--ink); }
+  .cta-row { display: flex; gap: .8rem; justify-content: center; flex-wrap: wrap; }
+  .micro { margin-top: .9rem; font-size: .8rem; color: var(--ink-mute); }
+
+  /* sections */
+  section { padding: 3.5rem 0; }
+  .kicker { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-bottom: .5rem; }
+  h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); font-weight: 800; letter-spacing: -.02em; margin-bottom: .4rem; }
+  .lead { color: var(--ink-soft); max-width: 640px; margin-bottom: 2rem; }
+
+  /* the bad choice */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
+  .choice { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 1.5rem; box-shadow: var(--shadow); }
+  .choice .tag { display: inline-block; border-radius: 999px; padding: .2rem .7rem; font-size: .76rem; font-weight: 700; margin-bottom: .8rem; }
+  .choice.ban .tag { background: var(--bad-soft); color: var(--bad); }
+  .choice.allow .tag { background: var(--warn-soft); color: var(--warn); }
+  .choice h3 { font-size: 1.05rem; margin-bottom: .4rem; }
+  .choice p { font-size: .92rem; color: var(--ink-soft); }
+  .punch { text-align: center; margin-top: 1.6rem; font-size: 1.06rem; color: var(--ink); font-weight: 600; }
+
+  /* diagram */
+  .diagram-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 2rem 1.5rem 1.2rem; box-shadow: var(--shadow-lg); }
+  .diagram { display: block; width: 100%; height: auto; }
+  .caption { text-align: center; font-size: .85rem; color: var(--ink-mute); margin-top: .9rem; }
+  .caption b { color: var(--ink-soft); }
+
+  /* features */
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; }
+  .feat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 1.35rem; box-shadow: var(--shadow); }
+  .feat .ico { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--accent-soft); margin-bottom: .85rem; font-size: 1.05rem; }
+  .feat h3 { font-size: .98rem; margin-bottom: .35rem; }
+  .feat p { font-size: .88rem; color: var(--ink-soft); }
+  .feat code { background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: .05rem .35rem; font-size: .8rem; }
+
+  /* security */
+  .sec-card { background: linear-gradient(180deg, #1d2740, #16203a); color: #e8edf7; border-radius: 18px; padding: 2.4rem 2rem; box-shadow: var(--shadow-lg); }
+  .sec-card .kicker { color: #9db4f5; }
+  .sec-card h2 { color: #fff; }
+  .sec-card .lead { color: #b9c4da; }
+  .sec-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .65rem 2rem; margin-top: 1.4rem; }
+  .sec-item { display: flex; gap: .6rem; align-items: flex-start; font-size: .92rem; color: #d4ddee; }
+  .sec-item .tick { color: #5fd49a; font-weight: 800; }
+  .sec-note { margin-top: 1.5rem; font-size: .84rem; color: #93a1bd; }
+
+  /* faq */
+  .faq { display: grid; gap: .8rem; max-width: 760px; }
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 1.05rem 1.25rem; box-shadow: var(--shadow); }
+  summary { cursor: pointer; font-weight: 600; font-size: .98rem; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+  summary::after { content: "+"; color: var(--ink-mute); font-size: 1.2rem; font-weight: 400; }
+  details[open] summary::after { content: "–"; }
+  details p { margin-top: .7rem; font-size: .92rem; color: var(--ink-soft); }
+
+  /* pilot */
+  .pilot { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 2.6rem 2rem; text-align: center; box-shadow: var(--shadow-lg); }
+  .pilot h2 { margin-bottom: .5rem; }
+  .pilot .lead { margin: 0 auto 1.6rem; }
+  .pilot-points { display: flex; justify-content: center; gap: 1.8rem; flex-wrap: wrap; margin-bottom: 1.8rem; font-size: .9rem; color: var(--ink-soft); }
+  .pilot-points span::before { content: "✓ "; color: var(--good); font-weight: 700; }
+
+  footer { border-top: 1px solid var(--line); padding: 2rem 0 3rem; font-size: .84rem; color: var(--ink-mute); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+  footer a { color: var(--ink-soft); }
+
+  @media (max-width: 760px) {
+    .split, .grid3, .sec-grid { grid-template-columns: 1fr; }
+    .hero { padding: 3.5rem 0 2.5rem; }
+    .nav-links { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-in">
+    <div class="brand">
+      <span class="logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 5l6 7-6 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/><path d="M12 5l6 7-6 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      Conduit
+    </div>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#features">What you get</a>
+      <a href="#security">Security</a>
+      <a href="#faq">FAQ</a>
+      <a class="btn sm" href="mailto:CONTACT_EMAIL?subject=Conduit%20design%20partner">Become a design partner</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <div class="chip"><span class="dot"></span> Looking for 1–2 design partners · free 90-day pilot in your VPC</div>
+  <h1>The AI gateway your security team can say <span style="color:var(--accent)">yes</span> to.</h1>
+  <p class="sub">Conduit is an on-prem gateway for AI coding agents — <b>per-engineer cost attribution</b>, <b>hard budgets</b>, and <b>egress governance</b>, running entirely inside your own cloud. Your code, keys, and prompts <b>never leave your perimeter</b>.</p>
+  <div class="cta-row">
+    <a class="btn" href="mailto:CONTACT_EMAIL?subject=Conduit%20design%20partner">Become a design partner</a>
+    <a class="btn ghost" href="LOOM_URL">▶&nbsp; Watch the 2.5-min demo</a>
+  </div>
+  <p class="micro">Works with Claude Code, Cursor, Codex &amp; any OpenAI/Anthropic-compatible tool · one env var to adopt</p>
+</header>
+
+<section class="wrap">
+  <p class="kicker">The problem</p>
+  <h2>Today, regulated teams get two bad options.</h2>
+  <p class="lead">Engineers want Claude Code and Cursor. Security wants to know what's leaving the building. The standard answers don't work:</p>
+  <div class="split">
+    <div class="choice ban">
+      <span class="tag">Option 1 — ban it</span>
+      <h3>Bans create shadow AI.</h3>
+      <p>Engineers don't stop — they switch to personal accounts and paste production code into consumer chatbots. You didn't remove the risk; you made it invisible. Practitioners across regulated orgs report exactly this.</p>
+    </div>
+    <div class="choice allow">
+      <span class="tag">Option 2 — approve &amp; hope</span>
+      <h3>Approval without control is blind.</h3>
+      <p>A shared API key, no per-engineer attribution, no budget caps, no record of what was sent. A vendor contract covers training-data use — it gives you <em>zero</em> internal visibility or control.</p>
+    </div>
+  </div>
+  <p class="punch">The real choice isn't AI vs. no AI. It's governed AI vs. shadow AI.</p>
+</section>
+
+<section class="wrap" id="how">
+  <p class="kicker">How it works</p>
+  <h2>One chokepoint, inside your own cloud.</h2>
+  <p class="lead">Point your tools' base URL at Conduit. Every AI request flows through a control point you own — then on to the providers you already use.</p>
+  <div class="diagram-card">
+    <svg class="diagram" viewBox="0 0 980 290" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+      <!-- your perimeter -->
+      <rect x="160" y="14" width="560" height="262" rx="16" fill="#f4f7fe" stroke="#c9d8fd" stroke-dasharray="6 5"/>
+      <text x="440" y="40" text-anchor="middle" font-size="12" font-weight="700" fill="#3b6ef5" letter-spacing="1.5">YOUR CLOUD · YOUR PERIMETER</text>
+      <!-- clients -->
+      <g>
+        <rect x="22" y="78" width="120" height="42" rx="9" fill="#ffffff" stroke="#e3e8f0"/>
+        <text x="82" y="104" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a2230">Claude Code</text>
+        <rect x="22" y="128" width="120" height="42" rx="9" fill="#ffffff" stroke="#e3e8f0"/>
+        <text x="82" y="154" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a2230">Cursor</text>
+        <rect x="22" y="178" width="120" height="42" rx="9" fill="#ffffff" stroke="#e3e8f0"/>
+        <text x="82" y="204" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a2230">Codex / agents</text>
+      </g>
+      <!-- arrows in -->
+      <g stroke="#9db4f5" stroke-width="2" fill="none">
+        <path d="M142 99 q 40 0 60 28"/><path d="M142 149 h 60"/><path d="M142 199 q 40 0 60 -28"/>
+      </g>
+      <!-- conduit box -->
+      <g>
+        <rect x="212" y="84" width="206" height="130" rx="13" fill="#3b6ef5"/>
+        <g transform="translate(228,100)">
+          <path d="M0 0l7 8-7 8" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity=".55" fill="none"/>
+          <path d="M9 0l7 8-7 8" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </g>
+        <text x="258" y="117" font-size="16" font-weight="800" fill="#ffffff">Conduit</text>
+        <text x="228" y="143" font-size="11.5" fill="#dbe5ff">virtual keys · budgets · allow-lists</text>
+        <text x="228" y="162" font-size="11.5" fill="#dbe5ff">egress governance · rate limits</text>
+        <text x="228" y="181" font-size="11.5" fill="#dbe5ff">metering · audit (metadata only)</text>
+        <text x="228" y="200" font-size="11.5" fill="#dbe5ff">encrypted provider credentials</text>
+      </g>
+      <!-- stores -->
+      <g>
+        <rect x="468" y="96" width="218" height="106" rx="11" fill="#ffffff" stroke="#e3e8f0"/>
+        <text x="577" y="122" text-anchor="middle" font-size="12" font-weight="700" fill="#4a5666">Your dashboards &amp; audit</text>
+        <text x="577" y="144" text-anchor="middle" font-size="11.5" fill="#8a95a6">spend by engineer · model · day</text>
+        <text x="577" y="162" text-anchor="middle" font-size="11.5" fill="#8a95a6">governance flags (category only)</text>
+        <text x="577" y="180" text-anchor="middle" font-size="11.5" fill="#8a95a6">CSV/JSON export for auditors</text>
+        <path d="M418 149 h 50" stroke="#9db4f5" stroke-width="2" stroke-dasharray="4 4" fill="none"/>
+      </g>
+      <!-- arrow out -->
+      <path d="M720 149 h 56" stroke="#9db4f5" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+      <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="#9db4f5"/></marker></defs>
+      <!-- providers -->
+      <g>
+        <rect x="790" y="73" width="168" height="38" rx="9" fill="#ffffff" stroke="#e3e8f0"/>
+        <text x="874" y="97" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a2230">Anthropic / OpenAI</text>
+        <rect x="790" y="123" width="168" height="38" rx="9" fill="#ffffff" stroke="#e3e8f0"/>
+        <text x="874" y="147" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a2230">AWS Bedrock</text>
+        <rect x="790" y="173" width="168" height="38" rx="9" fill="#ffffff" stroke="#e3e8f0"/>
+        <text x="874" y="197" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1a2230">Azure OpenAI</text>
+      </g>
+    </svg>
+    <p class="caption">Notice what's missing: <b>us.</b> Conduit ships as signed Docker images you run — there is no vendor cloud in the request path, no phone-home, and it can run fully air-gapped.</p>
+  </div>
+</section>
+
+<section class="wrap" id="features">
+  <p class="kicker">What you get</p>
+  <h2>The control plane a vendor contract doesn't give you.</h2>
+  <p class="lead">Bedrock private endpoints and no-train agreements secure the channel to the vendor. Conduit is the other half — what your own org sends, spends, and can prove.</p>
+  <div class="grid3">
+    <div class="feat"><div class="ico">🔑</div><h3>Virtual keys</h3><p>Engineers hold revocable stand-in keys; the real provider credential is AES-256-GCM-encrypted in the gateway and never touches a laptop.</p></div>
+    <div class="feat"><div class="ico">📊</div><h3>Per-engineer attribution</h3><p>Spend by key, model, team, and day — the breakdown a shared API key structurally can't produce. The answer to "who's the $40k."</p></div>
+    <div class="feat"><div class="ico">⛔</div><h3>Hard budgets &amp; limits</h3><p>Fail-closed caps (402 when a team hits its budget), per-key rate limits, and model allow-lists — no silent downgrades, ever.</p></div>
+    <div class="feat"><div class="ico">🛡️</div><h3>Egress governance</h3><p>Secrets and credentials caught <em>before</em> they leave the perimeter. Run in alert, watch the false-positive rate, promote categories to block one at a time. Records the category — never the value.</p></div>
+    <div class="feat"><div class="ico">📋</div><h3>Auditor-ready export</h3><p>Every request as a metadata-only record (who, when, model, tokens, cost, flags) — CSV/JSON export that makes a security review short.</p></div>
+    <div class="feat"><div class="ico">☁️</div><h3>Sits in front of Bedrock/Azure</h3><p>Already on a private endpoint? Configure that credential and Conduit routes through it — SigV4 and all — with <code>no client change</code>.</p></div>
+  </div>
+</section>
+
+<section class="wrap" id="security">
+  <div class="sec-card">
+    <p class="kicker">Security posture</p>
+    <h2>Built to pass your security review.</h2>
+    <p class="lead">We assume your security team will ask hard questions — so the answers are ready before you ask.</p>
+    <div class="sec-grid">
+      <div class="sec-item"><span class="tick">✓</span><span><b>No prompt or completion is ever stored.</b> Metadata only; governance inspection happens in memory and is discarded.</span></div>
+      <div class="sec-item"><span class="tick">✓</span><span><b>Signed releases + SBOM.</b> Images signed with Sigstore cosign; a CycloneDX bill of materials ships with every release.</span></div>
+      <div class="sec-item"><span class="tick">✓</span><span><b>No phone-home.</b> The only outbound calls are to the providers you configure. Air-gap friendly.</span></div>
+      <div class="sec-item"><span class="tick">✓</span><span><b>Fail-closed auth.</b> If the identity backend is down, requests are rejected — not waved through.</span></div>
+      <div class="sec-item"><span class="tick">✓</span><span><b>Encrypted credentials.</b> Provider keys sealed with AES-256-GCM; virtual keys stored only as hashes.</span></div>
+      <div class="sec-item"><span class="tick">✓</span><span><b>Tested &amp; CI-gated.</b> 61 automated tests (incl. the AWS SigV4 reference vector) run on every change.</span></div>
+    </div>
+    <p class="sec-note">Security whitepaper, data-flow diagram, and a completed CAIQ-lite questionnaire available on request — before you have to ask.</p>
+  </div>
+</section>
+
+<section class="wrap" id="faq">
+  <p class="kicker">Honest answers</p>
+  <h2>The questions you're already thinking.</h2>
+  <div class="faq" style="margin-top:1.6rem">
+    <details>
+      <summary>Is this SaaS? Does our data touch your servers?</summary>
+      <p>No, and never. Conduit is self-hosted software — you run the containers in your own cloud account. We are not in the request path, we never see your prompts, code, or keys, and there's no telemetry or license callback. The subscription buys the license, updates, and support — not hosting.</p>
+    </details>
+    <details>
+      <summary>Couldn't we just self-host an open-source gateway like LiteLLM?</summary>
+      <p>You can — if your security team will accept unsupported open source on your AI egress path, and you have a platform team to harden, patch, and document it. Conduit is for orgs where that's not true: a supported, compliance-documented control plane with signed releases, a patching commitment, and someone accountable — plus the governance feedback loop (alert → promote-to-block) built for coding-agent traffic.</p>
+    </details>
+    <details>
+      <summary>Does it change model quality or break streaming?</summary>
+      <p>No. Conduit is a transparent proxy: request bodies aren't modified, streaming (SSE) passes through untouched with metering off the hot path, and a disallowed model is a clear 403 — never a silent downgrade. Overhead is under 5ms.</p>
+    </details>
+    <details>
+      <summary>What does the design-partner pilot actually involve?</summary>
+      <p>You run Conduit free for 90 days in your own VPC (Docker Compose or K8s — clean install doc included). You get the full product and direct access to the builder; we get feedback and the chance to shape contextual governance against real traffic. No data leaves your account. Cancel anytime, keep the learnings.</p>
+    </details>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="pilot">
+    <p class="kicker">The ask</p>
+    <h2>Run Conduit free for 90 days, in your own VPC.</h2>
+    <p class="lead">For regulated, code-sensitive engineering teams (50–500 engineers) who want AI coding agents with a defensible "yes" — fintech, healthcare, GCCs.</p>
+    <div class="pilot-points">
+      <span>Free for 90 days</span>
+      <span>Runs in your cloud</span>
+      <span>No data leaves your account</span>
+      <span>Cancel anytime</span>
+    </div>
+    <div class="cta-row">
+      <a class="btn" href="mailto:CONTACT_EMAIL?subject=Conduit%20design%20partner">Become a design partner</a>
+      <a class="btn ghost" href="LOOM_URL">▶&nbsp; Watch the demo first</a>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <span>Conduit — on-prem AI gateway · cost, budgets &amp; governance for every LLM request.</span>
+  <span>Built for regulated, code-sensitive teams.</span>
+</footer>
+
+</body>
+</html>
