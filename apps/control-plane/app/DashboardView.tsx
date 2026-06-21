@@ -10,6 +10,7 @@ import type {
   RecentRow,
   BudgetStatus,
   Governance,
+  ContextRotBucket,
 } from "../lib/usage";
 
 const usd = (v: number): string => {
@@ -21,7 +22,7 @@ const usd = (v: number): string => {
 const num = (v: number): string => v.toLocaleString();
 
 const WINDOWS = [7, 30, 90];
-const TABS = ["Overview", "Spend", "Governance", "Budgets", "Activity"] as const;
+const TABS = ["Overview", "Spend", "Context", "Governance", "Budgets", "Activity"] as const;
 type Tab = (typeof TABS)[number];
 
 export type DashboardData = {
@@ -35,10 +36,11 @@ export type DashboardData = {
   recent: RecentRow[];
   budgets: BudgetStatus[];
   governance: Governance;
+  contextRot: ContextRotBucket[];
 };
 
 export default function DashboardView(props: DashboardData) {
-  const { org, days, summary, byModel, byTeam, byKey, timeseries, recent, budgets, governance } = props;
+  const { org, days, summary, byModel, byTeam, byKey, timeseries, recent, budgets, governance, contextRot } = props;
   const [tab, setTab] = useState<Tab>("Overview");
   const maxDayCost = Math.max(1e-9, ...timeseries.map((d) => d.costUsd));
 
@@ -54,7 +56,7 @@ export default function DashboardView(props: DashboardData) {
           </div>
           <div>
             <div className="brand-name">Conduit</div>
-            <div className="brand-sub">{org} · AI gateway — spend &amp; governance</div>
+            <div className="brand-sub">{org} · control plane for AI coding agents — spend · governance · context</div>
           </div>
         </div>
         <nav className="windows">
@@ -92,6 +94,7 @@ export default function DashboardView(props: DashboardData) {
           <Overview summary={summary} timeseries={timeseries} maxDayCost={maxDayCost} days={days} />
         )}
         {tab === "Spend" && <Spend byModel={byModel} byTeam={byTeam} byKey={byKey} />}
+        {tab === "Context" && <ContextRotTab contextRot={contextRot} />}
         {tab === "Governance" && <GovernanceTab governance={governance} requests={summary.requests} />}
         {tab === "Budgets" && <Budgets budgets={budgets} />}
         {tab === "Activity" && <Activity recent={recent} days={days} />}
@@ -289,6 +292,87 @@ function Spend({ byModel, byTeam, byKey }: { byModel: ModelRow[]; byTeam: TeamRo
           </tbody>
         </table>
       </section>
+    </>
+  );
+}
+
+function ContextRotTab({ contextRot }: { contextRot: ContextRotBucket[] }) {
+  const totalReq = contextRot.reduce((s, b) => s + b.requests, 0);
+  const hasData = totalReq > 0;
+  // For the cost-curve bar, scale against the bucket with the highest avg cost.
+  const maxAvgCost = Math.max(1e-9, ...contextRot.map((b) => b.avgCostUsd));
+  // Identify the "rot zone": buckets ≥32K with elevated error rate vs the smallest bucket.
+  const small = contextRot[0]?.errorRate ?? 0;
+  const rotBuckets = contextRot.filter((b) => b.minTokens >= 32000 && b.requests > 0 && b.errorRate > small + 0.02);
+  const rotShare = rotBuckets.reduce((s, b) => s + b.requests, 0) / Math.max(1, totalReq);
+  const rotCost = rotBuckets.reduce((s, b) => s + b.avgCostUsd * b.requests, 0);
+  return (
+    <>
+      <section className="card">
+        <h2>Context rot — cost &amp; error rate by conversation size</h2>
+        <p className="muted small">
+          Bucketed by input tokens (the prompt size Claude / GPT receives). We
+          never modify the prompt — this is observation only. The signal is the
+          <i> shape</i> of the curve: avg cost climbs linearly with size, but
+          error / retry rate climbs faster past the rot boundary. That gap is
+          what your team is paying for context rot.
+        </p>
+        {!hasData ? (
+          <p className="muted">No traffic in the selected window.</p>
+        ) : (
+          <table className="ctxrot">
+            <thead>
+              <tr>
+                <th>Bucket</th>
+                <th className="r">Requests</th>
+                <th className="r">Avg input tokens</th>
+                <th className="r">Avg cost</th>
+                <th className="r">Avg latency</th>
+                <th className="r">Error rate</th>
+                <th>Cost curve</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contextRot.map((b) => {
+                const w = b.avgCostUsd > 0 ? (b.avgCostUsd / maxAvgCost) * 100 : 0;
+                const errHot = b.requests > 0 && b.errorRate > small + 0.02;
+                return (
+                  <tr key={b.label}>
+                    <td><code>{b.label}</code></td>
+                    <td className="r">{num(b.requests)}</td>
+                    <td className="r">{num(b.avgInputTokens)}</td>
+                    <td className="r">{usd(b.avgCostUsd)}</td>
+                    <td className="r">{b.avgLatencyMs ? `${num(b.avgLatencyMs)} ms` : "—"}</td>
+                    <td className={`r ${errHot ? "warn" : ""}`}>
+                      {b.requests > 0 ? `${(b.errorRate * 100).toFixed(1)}%` : "—"}
+                    </td>
+                    <td className="sharecell">
+                      <div className="sharebar"><i style={{ width: `${Math.max(2, w)}%` }} /></div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      {hasData && rotShare > 0 && (
+        <section className="card">
+          <h2>Where you&apos;re paying for rot</h2>
+          <p>
+            <b>{(rotShare * 100).toFixed(1)}%</b> of requests fall in the rot zone
+            (≥32K tokens, elevated error rate vs the &lt;8K baseline). Those
+            requests cost an estimated <b>{usd(rotCost)}</b> in the selected
+            window.
+          </p>
+          <p className="muted small">
+            Mitigations live in the client / agent (Anthropic prompt caching,
+            conversation compaction, task-aware context trimming) — not in the
+            gateway. Conduit surfaces the bill so the right team can act.
+          </p>
+        </section>
+      )}
     </>
   );
 }

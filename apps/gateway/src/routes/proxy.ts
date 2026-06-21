@@ -19,7 +19,7 @@ import {
   rateLimited,
   governanceFlags,
 } from "./metrics";
-import { scanSecrets, categoriesOf } from "../governance/scan";
+import { scanSecrets, scanEntities, categoriesOf } from "../governance/scan";
 import { governanceConfig, effectiveAction } from "../governance/policy";
 import { parseUsage } from "../metering/usage";
 import { costFor } from "../metering/pricing";
@@ -302,7 +302,8 @@ async function forward(c: Context, provider: UpstreamProvider) {
   let govCategories: string[] = [];
   const gov = governanceConfig();
   if (gov.enabled && rawBody.byteLength > 0) {
-    const hits = scanSecrets(new TextDecoder().decode(rawBody));
+    const decoded = new TextDecoder().decode(rawBody);
+    const hits = [...scanSecrets(decoded), ...scanEntities(decoded, gov.entities)];
     if (hits.length > 0) {
       govCategories = categoriesOf(hits);
       // Per-request action: block if the global mode is block OR any hit category

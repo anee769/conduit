@@ -93,7 +93,10 @@ body {
 h1 { font-size: 1.55rem; margin: 0; letter-spacing: -0.01em; font-weight: 700; }
 h2 { font-size: 0.82rem; margin: 0 0 1rem; color: var(--ink-mute); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 .muted { color: var(--ink-mute); font-size: 0.85rem; }
+.muted.small { font-size: 0.8rem; line-height: 1.5; margin-top: .35rem; }
+td.warn, .r.warn { color: var(--bad, #c0392b); font-weight: 600; }
 .foot { margin-top: 1.5rem; }
+.ctxrot td code { background: var(--accent-soft); color: var(--accent); border-radius: 5px; padding: 0 .35rem; font-size: .82rem; }
 
 .windows { display: flex; gap: 0.35rem; }
 .win { padding: 0.35rem 0.8rem; border: 1px solid var(--line-strong); border-radius: 7px; color: var(--ink-soft); text-decoration: none; font-size: 0.85rem; background: var(--panel); transition: all 0.12s ease; }
