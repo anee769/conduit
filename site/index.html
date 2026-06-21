@@ -2,9 +2,8 @@
 <!--
   Conduit — design-partner landing page (single file, no build step).
 
-  ── BEFORE DEPLOYING, REPLACE THESE PLACEHOLDERS ─────────────────────────────
-    1. CONTACT_EMAIL   — search "CONTACT_EMAIL"  (mailto links)
-    2. LOOM_URL        — search "LOOM_URL"       (demo buttons)
+  ── BEFORE DEPLOYING, REPLACE THIS PLACEHOLDER ───────────────────────────────
+    CONTACT_EMAIL   — search "CONTACT_EMAIL"  (mailto links)
   ── DEPLOY (any of these, ~2 minutes) ────────────────────────────────────────
     Vercel:      `npx vercel site/` (or drag the folder into vercel.com/new)
     Cloudflare:  Pages → Upload assets → drop this folder
@@ -115,11 +114,24 @@
   .td { width: 11px; height: 11px; border-radius: 50%; }
   .td.r { background: #ff5f57; } .td.y { background: #febc2e; } .td.g { background: #28c840; }
   .term-title { margin-left: .6rem; font-family: var(--mono); font-size: .72rem; color: var(--ink-mute); }
-  .term pre { padding: 1.15rem 1.25rem 1.3rem; font-family: var(--mono); font-size: .84rem; line-height: 1.75; overflow-x: auto; color: #cdd8f2; }
+  .term pre { padding: 1.15rem 1.25rem 1.3rem; font-family: var(--mono); font-size: .84rem; line-height: 1.75; overflow-x: auto; color: #cdd8f2; min-height: 14.5rem; white-space: pre-wrap; }
   .term .c { color: #5a678c; }
   .term .p { color: var(--cyan); }
   .term .s { color: #9fb4e8; }
   .term .ok { color: var(--green); font-weight: 600; }
+  .term .err { color: var(--red); font-weight: 600; }
+  .term .warn { color: var(--amber); font-weight: 600; }
+  .term .k { color: #c4b5fd; }
+  .term .n { color: #fbbf24; }
+  .term-tabs { display: inline-flex; gap: .15rem; margin-left: auto; }
+  .term-tabs .tab { background: transparent; color: var(--ink-mute); border: 1px solid transparent;
+    border-radius: 7px; font-family: var(--mono); font-size: .72rem; padding: .25rem .6rem; cursor: pointer;
+    transition: color .15s, background .15s, border-color .15s; }
+  .term-tabs .tab:hover { color: var(--ink-soft); }
+  .term-tabs .tab.active { color: #cfe1ff; background: rgba(91,140,255,.12); border-color: rgba(91,140,255,.35); }
+  .cursor { display: inline-block; width: 8px; height: 1em; vertical-align: -2px; background: var(--cyan);
+    margin-left: 2px; animation: blink 1s steps(1) infinite; box-shadow: 0 0 8px rgba(34,211,238,.7); }
+  @keyframes blink { 50% { opacity: 0; } }
 
   /* marquee */
   .marquee { margin: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
@@ -289,17 +301,22 @@
   <p class="sub">Conduit is an on-prem gateway for AI coding agents — <b>per-engineer cost attribution</b>, <b>hard budgets</b>, and <b>egress governance</b>, running entirely inside your own cloud. Your code, keys, and prompts <b>never leave your perimeter</b>.</p>
   <div class="cta-row">
     <a class="btn primary" href="mailto:CONTACT_EMAIL?subject=Conduit%20design%20partner">Become a design partner →</a>
-    <a class="btn ghost" href="LOOM_URL">▶&nbsp; 2.5-min demo</a>
+    <a class="btn ghost" href="#live">▼&nbsp; See it live</a>
   </div>
   <p class="micro">one env var to adopt · zero client changes · &lt;5ms overhead</p>
 
-  <div class="term reveal">
-    <div class="term-bar"><span class="td r"></span><span class="td y"></span><span class="td g"></span><span class="term-title">adopt-conduit.sh — the entire migration</span></div>
-    <pre><span class="c"># point any OpenAI/Anthropic-compatible tool at the gateway</span>
-<span class="p">$</span> export ANTHROPIC_BASE_URL=<span class="s">https://conduit.internal.yourco.dev</span>
-<span class="p">$</span> export ANTHROPIC_AUTH_TOKEN=<span class="s">vk_live_…</span>  <span class="c"># revocable virtual key</span>
-<span class="p">$</span> claude
-<span class="ok">✓</span> streaming via Conduit — metered · budgeted · governed · attributed</pre>
+  <div class="term reveal" id="live">
+    <div class="term-bar">
+      <span class="td r"></span><span class="td y"></span><span class="td g"></span>
+      <span class="term-title" id="termTitle">adopt-conduit.sh</span>
+      <span class="term-tabs" aria-hidden="true">
+        <button class="tab active" data-scene="0">adopt</button>
+        <button class="tab" data-scene="1">request</button>
+        <button class="tab" data-scene="2">block</button>
+        <button class="tab" data-scene="3">attribute</button>
+      </span>
+    </div>
+    <pre id="termBody"><span class="cursor"></span></pre>
   </div>
 </header>
 
@@ -500,7 +517,7 @@
     </div>
     <div class="cta-row">
       <a class="btn primary" href="mailto:CONTACT_EMAIL?subject=Conduit%20design%20partner">Become a design partner →</a>
-      <a class="btn ghost" href="LOOM_URL">▶&nbsp; Watch the demo first</a>
+      <a class="btn ghost" href="#live">▼&nbsp; Replay the live terminal</a>
     </div>
   </div>
 </section>
@@ -516,6 +533,122 @@
     { threshold: 0.12 }
   );
   document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+
+  // ── live terminal: cycles through 4 scenes, typing them out ────────────
+  const scenes = [
+    {
+      title: "adopt-conduit.sh — the entire migration",
+      lines: [
+        ['c',  '# point any OpenAI/Anthropic-compatible tool at the gateway'],
+        ['p',  '$ '], ['',  'export ANTHROPIC_BASE_URL='], ['s', 'https://conduit.internal.yourco.dev\n'],
+        ['p',  '$ '], ['',  'export ANTHROPIC_AUTH_TOKEN='], ['s', 'vk_live_8f3c…  '], ['c', '# revocable virtual key\n'],
+        ['p',  '$ '], ['',  'claude\n'],
+        ['ok', '✓ '], ['',  'streaming via Conduit — metered · budgeted · governed · attributed'],
+      ],
+    },
+    {
+      title: "request.log — live request through the gateway",
+      lines: [
+        ['c',  '# claude code → POST /v1/messages (stream=true)\n'],
+        ['k',  '[auth]      '], ['',  'vk_live_8f3c…  → '], ['ok', 'priya@yourco · team:engineering\n'],
+        ['k',  '[budget]    '], ['',  'engineering   $312.40 / '], ['n', '$1,000'], ['',  ' (31%) — ok\n'],
+        ['k',  '[allowlist] '], ['',  'claude-opus-4 ∈ allowed — ok\n'],
+        ['k',  '[governance]'], ['',  ' scan(8.2KB) → '], ['ok', 'clean'], ['', ' (0.7ms)\n'],
+        ['k',  '[cache]     '], ['',  'miss — forwarding\n'],
+        ['k',  '[upstream]  '], ['',  'anthropic · TTFT '], ['n', '342ms'], ['',  ' · streaming…\n'],
+        ['ok', '✓ '], ['',  '2,847 in / 612 out · '], ['n', '$0.0612'], ['',  ' · attributed to priya'],
+      ],
+    },
+    {
+      title: "governance.log — egress blocked at the perimeter",
+      lines: [
+        ['c',  '# arjun @ cursor pasted a Terraform diff for review\n'],
+        ['k',  '[auth]      '], ['',  'vk_live_2a91…  → '], ['ok', 'arjun@yourco\n'],
+        ['k',  '[governance]'], ['',  ' scanning…\n'],
+        ['err','✗ '], ['',  'match: '], ['warn', 'aws_credentials'], ['',  ' · category promoted-to-block\n'],
+        ['err','HTTP 451 '], ['',  '— request rejected before reaching upstream\n'],
+        ['k',  '[audit]     '], ['',  'recorded {category=aws_credentials, value=NEVER_STORED}\n'],
+        ['k',  '[alert]     '], ['',  'webhook → #security-ops · 1 engineer notified\n'],
+        ['ok', '✓ '], ['',  'incident contained · 0 bytes left perimeter · 0 tokens billed'],
+      ],
+    },
+    {
+      title: "spend.sql — who's the $40k engineer?",
+      lines: [
+        ['p',  '$ '], ['',  'conduit spend --by key --since 30d\n\n'],
+        ['k', 'KEY                          ENGINEER   MODEL          REQS    COST\n'],
+        ['',  '─────────────────────────────────────────────────────────────────\n'],
+        ['',  'vk_live_8f3c…  '], ['ok', 'priya'], ['',  '       claude-opus-4   4,217  '], ['n', '$1,842.61\n'],
+        ['',  'vk_live_2a91…  '], ['ok', 'arjun'], ['',  '       claude-sonnet-4 6,891    '], ['n', '$734.18\n'],
+        ['',  'vk_live_5d4e…  '], ['ok', 'rohan'], ['',  '       claude-sonnet-4 2,103    '], ['n', '$214.07\n'],
+        ['',  'vk_live_b7c2…  '], ['ok', 'sneha'], ['',  '       claude-haiku-4  1,487     '], ['n', '$38.41\n'],
+        ['',  'vk_live_e0a8…  '], ['ok', 'ml-batch'], ['',  '    claude-haiku-4  9,142     '], ['n', '$21.86\n\n'],
+        ['c',  '# the breakdown a shared API key structurally can\'t produce'],
+      ],
+    },
+  ];
+
+  const body = document.getElementById("termBody");
+  const title = document.getElementById("termTitle");
+  const tabs = document.querySelectorAll(".term-tabs .tab");
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let scene = 0, timer = null, userTouched = false;
+
+  function escapeHtml(s) { return s.replace(/[&<>]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;"})[c]); }
+
+  function renderInstant(idx) {
+    title.textContent = scenes[idx].title;
+    body.innerHTML = scenes[idx].lines.map(([cls, txt]) =>
+      cls ? `<span class="${cls}">${escapeHtml(txt)}</span>` : escapeHtml(txt)
+    ).join("") + '<span class="cursor"></span>';
+    tabs.forEach((t, i) => t.classList.toggle("active", i === idx));
+  }
+
+  function renderUpTo(idx, n) {
+    let remaining = n, out = "";
+    for (const [cls, txt] of scenes[idx].lines) {
+      if (remaining <= 0) break;
+      const slice = txt.slice(0, Math.min(remaining, txt.length));
+      out += cls ? `<span class="${cls}">${escapeHtml(slice)}</span>` : escapeHtml(slice);
+      remaining -= slice.length;
+    }
+    return out + '<span class="cursor"></span>';
+  }
+
+  function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+  function jitter(ch) {
+    if (ch === "\n") return 90;
+    if (ch === " ") return 14;
+    return 12 + Math.random() * 28;
+  }
+
+  async function playScene(idx) {
+    clearTimeout(timer);
+    title.textContent = scenes[idx].title;
+    body.innerHTML = '<span class="cursor"></span>';
+    tabs.forEach((t, i) => t.classList.toggle("active", i === idx));
+    let charPos = 0;
+    for (const [, txt] of scenes[idx].lines) {
+      for (let i = 0; i < txt.length; i++) {
+        charPos++;
+        body.innerHTML = renderUpTo(idx, charPos);
+        await sleep(jitter(txt[i]));
+        if (userTouched && scene !== idx) return; // bail if user switched
+      }
+    }
+    if (!userTouched) timer = setTimeout(() => { scene = (idx + 1) % scenes.length; playScene(scene); }, 3600);
+  }
+
+  tabs.forEach((tab) => tab.addEventListener("click", (e) => {
+    e.preventDefault();
+    userTouched = true;
+    clearTimeout(timer);
+    scene = parseInt(tab.dataset.scene, 10);
+    if (reduced) renderInstant(scene); else playScene(scene);
+  }));
+
+  // start
+  if (reduced) renderInstant(0); else playScene(0);
 </script>
 </body>
 </html>
