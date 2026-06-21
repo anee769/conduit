@@ -2,15 +2,16 @@
 
 Single-file static site (`index.html`) — no build step, no dependencies.
 
-## Before deploying — replace 2 placeholders
+## Before deploying — replace 1 placeholder
 
-Search `index.html` for:
-
-1. **`CONTACT_EMAIL`** (3 places) — your real email, e.g.
-   `mailto:you@example.com?subject=Conduit%20design%20partner`
-2. **`LOOM_URL`** (2 places) — the demo video link.
+Search `index.html` for **`CONTACT_EMAIL`** (3 places) and replace with your
+real email, e.g. `mailto:you@example.com?subject=Conduit%20design%20partner`.
 
 Optional: swap the mailto CTAs for a Calendly/booking link.
+
+The hero terminal auto-cycles through 4 live scenes (adopt → live request →
+governance block → spend attribution). Tabs in the terminal header let visitors
+jump to any scene; the cycle pauses once they interact.
 
 ## Deploy (~2 minutes, all free)
 
