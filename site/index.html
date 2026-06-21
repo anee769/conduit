@@ -2,8 +2,6 @@
 <!--
   Conduit — design-partner landing page (single file, no build step).
 
-  ── BEFORE DEPLOYING, REPLACE THIS PLACEHOLDER ───────────────────────────────
-    CONTACT_EMAIL   — search "CONTACT_EMAIL"  (mailto links)
   ── DEPLOY (any of these, ~2 minutes) ────────────────────────────────────────
     Vercel:      `npx vercel site/` (or drag the folder into vercel.com/new)
     Cloudflare:  Pages → Upload assets → drop this folder
@@ -290,7 +288,7 @@
       <a href="#features">Product</a>
       <a href="#security">Security</a>
       <a href="#faq">FAQ</a>
-      <a class="btn primary sm" href="mailto:CONTACT_EMAIL?subject=Conduit%20design%20partner">Become a design partner</a>
+      <a class="btn primary sm" href="mailto:aneeshgupta709@gmail.com?subject=Conduit%20design%20partner">Become a design partner</a>
     </div>
   </div>
 </nav>
@@ -300,7 +298,7 @@
   <h1>The AI gateway your security team can say <span class="grad-text">yes</span> to.</h1>
   <p class="sub">Conduit is an on-prem gateway for AI coding agents — <b>per-engineer cost attribution</b>, <b>hard budgets</b>, and <b>egress governance</b>, running entirely inside your own cloud. Your code, keys, and prompts <b>never leave your perimeter</b>.</p>
   <div class="cta-row">
-    <a class="btn primary" href="mailto:CONTACT_EMAIL?subject=Conduit%20design%20partner">Become a design partner →</a>
+    <a class="btn primary" href="mailto:aneeshgupta709@gmail.com?subject=Conduit%20design%20partner">Become a design partner →</a>
     <a class="btn ghost" href="#live">▼&nbsp; See it live</a>
   </div>
   <p class="micro">one env var to adopt · zero client changes · &lt;5ms overhead</p>
@@ -314,6 +312,7 @@
         <button class="tab" data-scene="1">request</button>
         <button class="tab" data-scene="2">block</button>
         <button class="tab" data-scene="3">attribute</button>
+        <button class="tab" data-scene="4">context-rot</button>
       </span>
     </div>
     <pre id="termBody"><span class="cursor"></span></pre>
@@ -331,7 +330,7 @@
   <div class="stats">
     <div class="stat"><div class="n">&lt;5ms</div><div class="l">added latency · streaming untouched</div></div>
     <div class="stat"><div class="n">0</div><div class="l">prompts or completions ever stored</div></div>
-    <div class="stat"><div class="n">61</div><div class="l">automated tests, CI-gated</div></div>
+    <div class="stat"><div class="n">72</div><div class="l">automated tests, CI-gated</div></div>
     <div class="stat"><div class="n">100%</div><div class="l">inside your cloud · no phone-home</div></div>
   </div>
 </section>
@@ -433,7 +432,7 @@
     <div class="cell w3 feature">
       <div class="ico">🛡️</div>
       <h3>Egress governance that ships</h3>
-      <p>Secrets and credentials caught <em>before</em> they leave the perimeter. Run in alert, watch the false-positive rate per category, promote high-confidence ones to block — one at a time. Records the category, <b>never the value</b>.</p>
+      <p>Secrets caught <em>before</em> they leave the perimeter, plus a <b>per-org entity allowlist</b> for your customer names, internal codenames, and deal codes. Run in alert, watch the false-positive rate per category, promote high-confidence ones to block — one at a time. Records the category, <b>never the value</b>.</p>
     </div>
     <div class="cell w2">
       <div class="ico">🔑</div>
@@ -449,6 +448,13 @@
       <div class="ico">📋</div>
       <h3>Auditor-ready export</h3>
       <p>Every request as a metadata-only record — CSV/JSON export that makes a security review short.</p>
+    </div>
+    <div class="cell w6 feature">
+      <div class="ico">📉</div>
+      <div>
+        <h3>Context-rot panel — FinOps that catches what spend dashboards miss</h3>
+        <p>Conduit buckets every request by input-token size and shows the cost-and-error curve. Past 32K tokens, error rate and latency climb faster than cost — that gap is what your team is paying for <em>context rot</em>. We <b>never modify the prompt</b> (that would break Anthropic's prefix cache and the byte-transparent promise) — Conduit surfaces the bill, the client / agent does the mitigation.</p>
+      </div>
     </div>
     <div class="cell w6">
       <div class="ico">☁️</div>
@@ -473,7 +479,7 @@
       <div class="sec-item"><span class="tick">✓</span><span><b>No phone-home.</b> The only outbound calls are to the providers you configure. Air-gap friendly.</span></div>
       <div class="sec-item"><span class="tick">✓</span><span><b>Fail-closed auth.</b> If the identity backend is down, requests are rejected — not waved through.</span></div>
       <div class="sec-item"><span class="tick">✓</span><span><b>Encrypted credentials.</b> Provider keys sealed with AES-256-GCM; virtual keys stored only as hashes.</span></div>
-      <div class="sec-item"><span class="tick">✓</span><span><b>Tested &amp; CI-gated.</b> 61 automated tests (incl. the AWS SigV4 reference vector) run on every change.</span></div>
+      <div class="sec-item"><span class="tick">✓</span><span><b>Tested &amp; CI-gated.</b> 72 automated tests (incl. the AWS SigV4 reference vector + governance privacy invariant) run on every change.</span></div>
     </div>
     <p class="sec-note">→ security whitepaper · data-flow diagram · CAIQ-lite questionnaire — available on request, before you have to ask.</p>
   </div>
@@ -495,7 +501,11 @@
     </details>
     <details>
       <summary>Does it change model quality or break streaming?</summary>
-      <p>No. Conduit is a transparent proxy: request bodies aren't modified, streaming (SSE) passes through untouched with metering off the hot path, and a disallowed model is a clear 403 — never a silent downgrade. Overhead is under 5ms.</p>
+      <p>No. Conduit is a transparent proxy: request bodies aren't modified, streaming (SSE) passes through untouched with metering off the hot path, and a disallowed model is a clear 403 — never a silent downgrade. Overhead is under 5ms. The context-rot panel measures where you're paying for rot; we deliberately do <em>not</em> rewrite prompts (that would bust Anthropic's prefix cache and break the byte-transparent promise).</p>
+    </details>
+    <details>
+      <summary>Are you SOC 2 / HIPAA / ISO 27001 compliant?</summary>
+      <p>Honest answer: <b>not yet</b>, and we won't claim a certificate we don't have. Conduit is on-prem software you run inside your perimeter, so most compliance properties (SOC 2 control coverage, BAAs, residency) are inherited from <em>your</em> environment — your cloud account, your secret manager, your IdP. What we <em>do</em> provide for your security review: this security posture summary, a CAIQ-lite / SIG-lite questionnaire, cosign-signed images + a CycloneDX SBOM per release, the privacy guarantees described above (no prompt/completion storage, AES-256-GCM-sealed provider keys, metadata-only audit log), and direct engineering access. SOC 2 Type II is on the roadmap when design-partner traffic + revenue make a formal audit make sense — and we'll announce it the day the report exists, not before.</p>
     </details>
     <details>
       <summary>What does the design-partner pilot actually involve?</summary>
@@ -516,7 +526,7 @@
       <span>cancel anytime</span>
     </div>
     <div class="cta-row">
-      <a class="btn primary" href="mailto:CONTACT_EMAIL?subject=Conduit%20design%20partner">Become a design partner →</a>
+      <a class="btn primary" href="mailto:aneeshgupta709@gmail.com?subject=Conduit%20design%20partner">Become a design partner →</a>
       <a class="btn ghost" href="#live">▼&nbsp; Replay the live terminal</a>
     </div>
   </div>
@@ -584,6 +594,21 @@
         ['',  'vk_live_b7c2…  '], ['ok', 'sneha'], ['',  '       claude-haiku-4  1,487     '], ['n', '$38.41\n'],
         ['',  'vk_live_e0a8…  '], ['ok', 'ml-batch'], ['',  '    claude-haiku-4  9,142     '], ['n', '$21.86\n\n'],
         ['c',  '# the breakdown a shared API key structurally can\'t produce'],
+      ],
+    },
+    {
+      title: "context-rot.sql — where the team is paying for rot",
+      lines: [
+        ['p',  '$ '], ['',  'conduit context --rot --since 30d\n\n'],
+        ['k', 'INPUT TOKENS    REQUESTS   AVG COST     AVG LATENCY    ERROR RATE\n'],
+        ['',  '─────────────────────────────────────────────────────────────────\n'],
+        ['',  '<8K              12,481     '], ['n', '$0.018'], ['',  '        612 ms          '], ['ok', '0.4%\n'],
+        ['',  '8–32K             8,194     '], ['n', '$0.071'], ['',  '      1,184 ms          '], ['ok', '0.9%\n'],
+        ['',  '32–100K           3,612     '], ['n', '$0.241'], ['',  '      2,847 ms          '], ['warn', '4.2%\n'],
+        ['',  '100–500K            927     '], ['n', '$1.184'], ['',  '      7,318 ms          '], ['err', '11.7%\n'],
+        ['',  '>500K               181     '], ['n', '$5.402'], ['',  '     19,402 ms          '], ['err', '23.1%\n\n'],
+        ['warn','⚠ '], ['',  '15.4% of requests in the rot zone (≥32K) ·  est. '], ['n', '$3,114'], ['',  ' / 30d\n'],
+        ['c',  '# Conduit never modifies the prompt (cache-busting). It surfaces the bill.'],
       ],
     },
   ];

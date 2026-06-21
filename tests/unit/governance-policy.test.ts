@@ -59,3 +59,33 @@ test("block-category list is case/space-insensitive", () => {
     assert.equal(effectiveAction(["jwt"]), "block");
   });
 });
+
+test("entities: JSON array env → parsed list", () => {
+  withEnv({ GOVERNANCE_ENTITIES: '["Acme Corp", "Project Nimbus", "Q4-DEAL-21"]' }, () => {
+    assert.deepEqual(governanceConfig().entities, ["Acme Corp", "Project Nimbus", "Q4-DEAL-21"]);
+  });
+});
+
+test("entities: CSV env → parsed list (whitespace trimmed)", () => {
+  withEnv({ GOVERNANCE_ENTITIES: "Acme, Globex ,  Initech " }, () => {
+    assert.deepEqual(governanceConfig().entities, ["Acme", "Globex", "Initech"]);
+  });
+});
+
+test("entities: unset or empty env → empty list (governance ships safe)", () => {
+  withEnv({ GOVERNANCE_ENTITIES: undefined }, () => {
+    assert.deepEqual(governanceConfig().entities, []);
+  });
+  withEnv({ GOVERNANCE_ENTITIES: "   " }, () => {
+    assert.deepEqual(governanceConfig().entities, []);
+  });
+});
+
+test("entities: malformed JSON falls back to CSV parsing", () => {
+  withEnv({ GOVERNANCE_ENTITIES: "[broken json, no quotes" }, () => {
+    // Falls through to CSV; first segment retains the "[" but it doesn't crash.
+    const ents = governanceConfig().entities;
+    assert.ok(Array.isArray(ents));
+    assert.ok(ents.length >= 1);
+  });
+});

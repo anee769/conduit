@@ -15,9 +15,15 @@
  *       runs in alert, watches which categories fire (and their false-positive
  *       rate) on the dashboard, then promotes the high-confidence ones one at a
  *       time — without flipping the whole policy to block.
+ *   GOVERNANCE_ENTITIES  JSON array OR csv (default: none) — per-org Tier-2-lite
+ *       entity allowlist. Operator-configured strings (customer names, internal
+ *       codenames, deal codes) that scanEntities() flags as the `org_entity`
+ *       category. Whole-word, case-insensitive. CSV is fine for entity names
+ *       without commas; use JSON for anything trickier:
+ *           GOVERNANCE_ENTITIES='["Acme Corp", "Project Nimbus", "Q4-DEAL-21"]'
  *
- * Default is `alert` with no promoted categories: governance ships safe (it can
- * never break a coding session on day one).
+ * Default is `alert` with no promoted categories and no entities: governance
+ * ships safe (it can never break a coding session on day one).
  */
 
 export type GovernanceMode = "alert" | "block";
@@ -28,7 +34,23 @@ export type GovernanceConfig = {
   mode: GovernanceMode;
   /** Categories promoted to block while the global mode is still alert. */
   blockCategories: string[];
+  /** Per-org entity allowlist (Tier 2-lite). Empty by default. */
+  entities: string[];
 };
+
+function parseEntities(raw: string | undefined): string[] {
+  const v = (raw ?? "").trim();
+  if (!v) return [];
+  if (v.startsWith("[")) {
+    try {
+      const arr = JSON.parse(v);
+      if (Array.isArray(arr)) return arr.map((x) => String(x).trim()).filter(Boolean);
+    } catch {
+      // fall through to CSV
+    }
+  }
+  return v.split(",").map((s) => s.trim()).filter(Boolean);
+}
 
 function parseConfig(): GovernanceConfig {
   const enabled = (process.env.GOVERNANCE_ENABLED ?? "on").toLowerCase() !== "off";
@@ -37,7 +59,8 @@ function parseConfig(): GovernanceConfig {
     .split(",")
     .map((c) => c.trim().toLowerCase())
     .filter(Boolean);
-  return { enabled, mode, blockCategories };
+  const entities = parseEntities(process.env.GOVERNANCE_ENTITIES);
+  return { enabled, mode, blockCategories, entities };
 }
 
 let cached: GovernanceConfig = parseConfig();

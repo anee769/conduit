@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSummary, getByModel, getByTeam, getByKey, getTimeseries, getRecent, getBudgetStatus, getGovernance } from "../../../lib/usage";
+import { getSummary, getByModel, getByTeam, getByKey, getTimeseries, getRecent, getBudgetStatus, getGovernance, getContextRot } from "../../../lib/usage";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const days = Math.min(365, Math.max(1, Number(url.searchParams.get("days") ?? 30)));
   try {
-    const [summary, byModel, byTeam, byKey, timeseries, recent, budgets, governance] = await Promise.all([
+    const [summary, byModel, byTeam, byKey, timeseries, recent, budgets, governance, contextRot] = await Promise.all([
       getSummary(days),
       getByModel(days),
       getByTeam(days),
@@ -21,8 +21,9 @@ export async function GET(req: Request) {
       getRecent(25),
       getBudgetStatus(),
       getGovernance(days),
+      getContextRot(days),
     ]);
-    return NextResponse.json({ days, summary, byModel, byTeam, byKey, timeseries, recent, budgets, governance });
+    return NextResponse.json({ days, summary, byModel, byTeam, byKey, timeseries, recent, budgets, governance, contextRot });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }

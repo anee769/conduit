@@ -11,10 +11,15 @@
  *   - The caller records category names only; the secret itself is discarded
  *     the moment scanning completes.
  *
- * Scope: Tier 1 is fixed, universal patterns (API keys, tokens, private keys) —
- * near-zero false positives, sub-millisecond cost. Per-org contextual entities
- * (customer names, internal codenames, revenue figures) are Tier 2 and are built
- * against a design partner's real traffic — deliberately NOT here.
+ * Scope:
+ *   - Tier 1 (this file's RULES): fixed, universal patterns (API keys, tokens,
+ *     private keys) — near-zero false positives, sub-millisecond cost.
+ *   - Tier 2-lite (scanEntities below): per-org STRING allowlist. The operator
+ *     pastes a list of organization-specific entity names (customer names,
+ *     internal codenames, M&A targets, deal codes). Matched whole-word,
+ *     case-insensitive. The minimum-viable T2 — proves the wiring without
+ *     guessing at ML/embeddings. Full contextual T2 (entity-type inference,
+ *     confidence-scoring) is built against a design partner's real traffic.
  */
 
 export type SecretHit = {
@@ -66,4 +71,44 @@ export function scanSecrets(text: string): SecretHit[] {
 /** Distinct categories from a set of hits (what the dashboard/event records). */
 export function categoriesOf(hits: SecretHit[]): string[] {
   return [...new Set(hits.map((h) => h.category))].sort();
+}
+
+// ── Tier 2-lite: per-org entity allowlist ───────────────────────────────────
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Stable, non-reversible id so the event record never contains the entity name.
+// Operators map ruleIds back via their own configured list.
+function entityRuleId(idx: number): string {
+  return `org_entity_${idx.toString(36).padStart(3, "0")}`;
+}
+
+/**
+ * Scan for operator-configured organization entity strings (Tier 2-lite).
+ * Whole-word, case-insensitive. The matched value is NEVER returned — only the
+ * `org_entity` category and a position-indexed ruleId (so the entity name
+ * itself never appears in event records, mirroring the T1 privacy invariant).
+ *
+ * Empty/whitespace entries are ignored; entities shorter than 3 chars are
+ * dropped to keep false-positive risk sane.
+ */
+export function scanEntities(text: string, entities: string[]): SecretHit[] {
+  if (!text || !entities?.length) return [];
+  const hits: SecretHit[] = [];
+  const seen = new Set<string>();
+  entities.forEach((raw, idx) => {
+    const e = raw?.trim();
+    if (!e || e.length < 3) return;
+    const re = new RegExp(`(?:^|[^A-Za-z0-9_])${escapeRegex(e)}(?:[^A-Za-z0-9_]|$)`, "i");
+    if (re.test(text)) {
+      const ruleId = entityRuleId(idx);
+      if (!seen.has(ruleId)) {
+        seen.add(ruleId);
+        hits.push({ category: "org_entity", ruleId });
+      }
+    }
+  });
+  return hits;
 }

@@ -1,4 +1,4 @@
-import { getSummary, getByModel, getByTeam, getByKey, getTimeseries, getRecent, getBudgetStatus, getGovernance, orgName } from "../lib/usage";
+import { getSummary, getByModel, getByTeam, getByKey, getTimeseries, getRecent, getBudgetStatus, getGovernance, getContextRot, orgName } from "../lib/usage";
 import DashboardView from "./DashboardView";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export default async function Dashboard({
   let data;
   let error: string | null = null;
   try {
-    const [summary, byModel, byTeam, byKey, timeseries, recent, budgets, governance, org] = await Promise.all([
+    const [summary, byModel, byTeam, byKey, timeseries, recent, budgets, governance, contextRot, org] = await Promise.all([
       getSummary(days),
       getByModel(days),
       getByTeam(days),
@@ -24,9 +24,10 @@ export default async function Dashboard({
       getRecent(25),
       getBudgetStatus(),
       getGovernance(days),
+      getContextRot(days),
       orgName(),
     ]);
-    data = { org, days, summary, byModel, byTeam, byKey, timeseries, recent, budgets, governance };
+    data = { org, days, summary, byModel, byTeam, byKey, timeseries, recent, budgets, governance, contextRot };
   } catch (err) {
     error = String(err);
   }
