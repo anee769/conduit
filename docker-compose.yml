@@ -73,6 +73,7 @@ services:
       GOVERNANCE_ENABLED: ${GOVERNANCE_ENABLED:-on}
       GOVERNANCE_MODE: ${GOVERNANCE_MODE:-alert}
       GOVERNANCE_BLOCK_CATEGORIES: ${GOVERNANCE_BLOCK_CATEGORIES:-}
+      GOVERNANCE_ENTITIES: ${GOVERNANCE_ENTITIES:-}
       # Optional Bedrock/Azure defaults for the provider adapters.
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2024-10-21}
@@ -98,6 +99,7 @@ services:
       # categories are blocking vs only alerting.
       GOVERNANCE_MODE: ${GOVERNANCE_MODE:-alert}
       GOVERNANCE_BLOCK_CATEGORIES: ${GOVERNANCE_BLOCK_CATEGORIES:-}
+      GOVERNANCE_ENTITIES: ${GOVERNANCE_ENTITIES:-}
     ports:
       - "3000:3000"
     depends_on:

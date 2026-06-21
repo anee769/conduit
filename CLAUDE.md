@@ -12,7 +12,7 @@ data model, pricing, and the §13 onboarding design.
 
 ---
 
-## STATUS: Phase-1 MVP (M1–M8) + Phase-2 governance started · full test suite (61 passing)
+## STATUS: Phase-1 MVP (M1–M8) + Phase-2 P2.1–P2.6 · full test suite (72 passing)
 
 | # | Milestone | State |
 |---|-----------|-------|
@@ -29,11 +29,20 @@ data model, pricing, and the §13 onboarding design.
 | P2.2 | Per-key/per-model cost attribution + exportable audit log (CSV/JSON) | ✅ |
 | P2.3 | Provider adapters: Bedrock (SigV4) + Azure OpenAI; sit in front of either | ✅ |
 | P2.4 | Governance alert→block feedback loop (per-category promote, `GOVERNANCE_BLOCK_CATEGORIES`) | ✅ |
+| P2.5 | T2-lite per-org entity allowlist (`GOVERNANCE_ENTITIES`, whole-word, case-insensitive, value never recorded) | ✅ |
+| P2.6 | Context-rot panel (FinOps observability — bucket by input-token size, surfaces avg cost / latency / error rate; no prompt modification) | ✅ |
 
 **Contextual T2 governance (per-org entities) + Phase 3 are NOT built** — see
-Roadmap. T2 is deliberately deferred until a design partner's real traffic. Bedrock
-support is non-streaming (`/invoke`); Bedrock *streaming* (event-stream framing) is
-the next adapter increment.
+Roadmap. **T2-lite** (a per-org entity *string allowlist* — operator-pasted customer
+names / codenames, whole-word matched, value never stored) ships now (P2.5) as the
+minimum-viable T2 that proves the wiring without guessing. **Full T2** (entity-type
+inference, confidence-scoring, ML/embeddings) is still deliberately deferred until
+a design partner's real traffic. The **context-rot panel** (P2.6) is FinOps
+*observability* — bucket by input-token size, surface where the team is paying for
+rot. We deliberately do NOT modify the prompt (would break Anthropic's prefix
+cache + the byte-transparent promise); mitigation lives in the client / agent.
+Bedrock support is non-streaming (`/invoke`); Bedrock *streaming* (event-stream
+framing) is the next adapter increment.
 
 ---
 
@@ -136,7 +145,7 @@ docker compose --profile app up --build
 ## TEST
 
 ```bash
-pnpm --filter @finops/tests test:unit             # 37 pure-logic tests, no infra
+pnpm --filter @finops/tests test:unit             # 48 pure-logic tests, no infra
 pnpm --filter @finops/tests test:system           # 24 live tests (needs stack up)
 # or the orchestrated runner (brings the whole stack up first):
 bash scripts/run-tests.sh             # macOS/Linux (full unit + system)
@@ -164,8 +173,11 @@ must be a real 32-byte base64 value, the placeholder is rejected) ·
 (control-plane admin API + gateway /admin/reload; unset = open) ·
 `GOVERNANCE_ENABLED=on|off` `GOVERNANCE_MODE=alert|block` (T1 secrets scan)
 `GOVERNANCE_BLOCK_CATEGORIES` (csv — categories promoted to block while global mode
-stays alert: the feedback loop) · `AWS_REGION` `AZURE_OPENAI_API_VERSION` (provider
-adapters) · `DASHBOARD_PASSWORD` `DASHBOARD_SECRET` (dashboard UI gate; unset = open).
+stays alert: the feedback loop) `GOVERNANCE_ENTITIES` (JSON array or csv — T2-lite
+per-org entity allowlist: customer names, codenames, deal codes; matched whole-word
+case-insensitive; the value is NEVER recorded, only the `org_entity` category) ·
+`AWS_REGION` `AZURE_OPENAI_API_VERSION` (provider adapters) · `DASHBOARD_PASSWORD`
+`DASHBOARD_SECRET` (dashboard UI gate; unset = open).
 
 ## CONVENTIONS / RULES
 
@@ -263,9 +275,25 @@ alert→promote-to-block as how governance actually ships.
    `GOVERNANCE_BLOCK_CATEGORIES` + `effectiveAction()`; global mode stays alert while
    you promote high-confidence categories one at a time. Dashboard shows each
    category as blocking vs alerting. The FP-aware loop, env-driven + hot-reloadable.
-8. **T2 contextual governance** — per-org entities (customer names, codenames,
-   revenue). "Classify the request, not the code." Build AGAINST a design partner's
-   real traffic, alert-only first, then promote-to-block. NOT before a partner.
+8a. ✅ **T2-lite entity allowlist (DONE)** — `GOVERNANCE_ENTITIES` (JSON array or
+   csv), parsed in `governance/policy.ts`, matched in `scanEntities()` whole-word
+   + case-insensitive. Hits surface as the `org_entity` category; the entity
+   *value* never appears in event records (ruleId is a stable position-indexed
+   id). Same alert→promote-to-block lifecycle as every other T1 category. The
+   minimum-viable T2 that proves the wiring without guessing — operators paste
+   customer names / codenames / deal codes; full ML-flavored T2 still waits on
+   real traffic.
+8b. **T2 full contextual governance** — entity-TYPE inference (not just literal
+   strings): "this string looks like a customer name / deal code / revenue
+   figure" via lightweight classifier. "Classify the request, not the code."
+   Build AGAINST a design partner's real traffic; alert-only first, then
+   promote-to-block. NOT before a partner.
+8c. ✅ **Context-rot panel (DONE)** — `getContextRot()` buckets ClickHouse traffic
+   by input-token size (<8K · 8–32K · 32–100K · 100–500K · >500K) and surfaces
+   avg cost, avg latency, error rate per bucket; dashboard "Context" tab. We
+   deliberately do NOT modify the prompt (would bust Anthropic's prefix cache
+   and the byte-transparent promise) — Conduit measures, the client/agent
+   mitigates. New wedge slide: "FinOps that catches context rot, not just spend."
 9. **T1.5 structure-preserving substitution** — the productivity-preserving middle
    path between `alert` (no protection) and `block` (451 kills the session). Swap
    sensitive *values* (secrets, customer names, IDs) for structurally-valid fakes

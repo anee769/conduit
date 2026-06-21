@@ -29,6 +29,8 @@ LLM spend. See [`MVP_SPEC.md`](MVP_SPEC.md) for the full product spec.
   - **per-key/per-model cost attribution** + **exportable audit log** (`/api/audit`, CSV/JSON, metadata-only, gated)
   - **provider adapters** — sit in front of **AWS Bedrock (SigV4)** or **Azure OpenAI** with no client change
   - **governance alert→block feedback loop** — promote categories to block via `GOVERNANCE_BLOCK_CATEGORIES`
+  - **T2-lite per-org entity allowlist** (`GOVERNANCE_ENTITIES`) — operator-pasted customer names / codenames / deal codes, whole-word, case-insensitive, value never recorded
+  - **context-rot panel** — bucket requests by input-token size, surface the cost-and-error premium on oversized prompts (FinOps observability; we never modify the prompt)
   - **Claude Code ready** — `/v1/messages/count_tokens` passthrough (auth, not metered) + `scripts/capture-cost.sh` to snapshot a real session's spend for the pitch
 
 ### Run it
@@ -81,7 +83,7 @@ Branches: feature work → PR into **`dev`** → PR from `dev` into **`master`**
 - **`master`** is the always-green release branch.
 - **`dev`** is the integration branch.
 - CI (`.github/workflows/ci.yml`) runs on **every PR** (both hops) and on pushes
-  to `dev`/`master`: workspace typecheck + the full 59-test suite against a live,
+  to `dev`/`master`: workspace typecheck + the full 72-test suite against a live,
   mock-backed stack. **Only merge a PR when its CI check is green.**
 
 ```bash

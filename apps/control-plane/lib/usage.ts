@@ -324,6 +324,80 @@ export async function getAuditEvents(days: number, limit = 5000): Promise<AuditR
   });
 }
 
+export type ContextRotBucket = {
+  /** Human label, e.g. "<8K", "8–32K". */
+  label: string;
+  /** Lower bound of the bucket (inclusive), in input tokens. */
+  minTokens: number;
+  requests: number;
+  avgInputTokens: number;
+  avgCostUsd: number;
+  avgLatencyMs: number;
+  /** Share of requests in this bucket that ended in a non-2xx HTTP status. */
+  errorRate: number;
+};
+
+/**
+ * Context-rot measurement: bucket requests by input-token size and surface
+ * cost / latency / error-rate per bucket. The wedge is FinOps observability,
+ * not modification — we never rewrite the prompt (that would break Anthropic's
+ * prefix cache and the byte-transparent promise). The signal is the *shape*
+ * of the curve: cost climbs linearly with size, but error rate / latency
+ * often climb faster — that's where the team is paying a context-rot
+ * premium without realizing it.
+ *
+ * Buckets are deliberately coarse and stable so the dashboard reads at a
+ * glance; the boundaries match the regions where Claude's behavior is known
+ * to shift (Chroma "context rot" research).
+ */
+export async function getContextRot(days: number): Promise<ContextRotBucket[]> {
+  const rows = await chQuery<Record<string, unknown>>(`
+    SELECT
+      multiIf(
+        input_tokens < 8000,   0,
+        input_tokens < 32000,  1,
+        input_tokens < 100000, 2,
+        input_tokens < 500000, 3,
+                               4
+      ) AS bucket,
+      count() AS requests,
+      avg(input_tokens) AS avg_input_tokens,
+      avg(cost_usd)     AS avg_cost_usd,
+      avg(latency_ms)   AS avg_latency_ms,
+      countIf(http_status >= 400) AS errors
+    FROM usage_events
+    WHERE ${since(days)} AND status != 'cache_hit' AND input_tokens > 0
+    GROUP BY bucket
+    ORDER BY bucket`);
+
+  const labels: Array<{ label: string; minTokens: number }> = [
+    { label: "<8K",        minTokens: 0      },
+    { label: "8–32K",      minTokens: 8000   },
+    { label: "32–100K",    minTokens: 32000  },
+    { label: "100–500K",   minTokens: 100000 },
+    { label: ">500K",      minTokens: 500000 },
+  ];
+
+  // Map indexed buckets back, filling missing rows with zeroes so the panel
+  // always shows the full curve even when a bucket has no traffic.
+  const byBucket = new Map<number, Record<string, unknown>>();
+  for (const r of rows) byBucket.set(n(r.bucket), r);
+  return labels.map((l, idx) => {
+    const r = byBucket.get(idx);
+    const requests = n(r?.requests);
+    const errors = n(r?.errors);
+    return {
+      label: l.label,
+      minTokens: l.minTokens,
+      requests,
+      avgInputTokens: Math.round(n(r?.avg_input_tokens)),
+      avgCostUsd: n(r?.avg_cost_usd),
+      avgLatencyMs: Math.round(n(r?.avg_latency_ms)),
+      errorRate: requests > 0 ? errors / requests : 0,
+    };
+  });
+}
+
 export async function getTimeseries(days: number): Promise<DayRow[]> {
   const rows = await chQuery<Record<string, unknown>>(`
     SELECT toDate(ts) AS day, sum(cost_usd) AS cost_usd, count() AS requests

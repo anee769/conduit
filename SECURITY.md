@@ -91,19 +91,25 @@ sensitive value is *never* written to any store or log — only its category.
 ## 5. Data-governance (egress control)
 
 Before a request can leave your perimeter for a provider, Conduit runs a
-**pure, in-memory secrets scan** (T1) on the request body:
+**pure, in-memory scan** on the request body:
 
-- Detects API keys, tokens, private-key blocks, and credential patterns.
+- **T1 (universal secrets)** — high-confidence structured patterns: API keys,
+  tokens, private-key blocks, credential assignments.
+- **T2-lite (per-org entity allowlist)** — operator-pasted strings via
+  `GOVERNANCE_ENTITIES` (customer names, internal codenames, deal codes).
+  Whole-word, case-insensitive. Flagged as the `org_entity` category.
 - Two actions: **alert** (record the category and forward) or **block** (reject
   with HTTP 451 before the request reaches the provider).
 - A **per-category promote-to-block** feedback loop: run in alert, observe the
-  false-positive rate per category, then enforce high-confidence categories one at
-  a time (`GOVERNANCE_BLOCK_CATEGORIES`).
-- **Only the category is recorded — never the value.** This is verified by an
-  explicit test asserting the secret string never appears in `usage_events`.
+  false-positive rate per category on the dashboard, then enforce
+  high-confidence categories one at a time (`GOVERNANCE_BLOCK_CATEGORIES`).
+- **Only the category is recorded — never the value.** This holds for both T1
+  secrets AND T2-lite entities; both are covered by explicit privacy tests
+  asserting the matched string (and its case-folded form) never appears in
+  `usage_events` or hit records.
 
 The scan is synchronous and sub-millisecond; it is the only added latency on the
-hot path, and it is opt-in.
+hot path, and it is opt-in (`GOVERNANCE_ENABLED=on|off`, default on).
 
 ## 6. Authentication & failure modes
 
@@ -140,7 +146,7 @@ deployments, so multi-team isolation is enforced at the data layer from day one.
 
 ## 9. Testing & change control
 
-- **61 automated tests** (unit + live-system), run on every PR and push via CI
+- **72 automated tests** (unit + live-system), run on every PR and push via CI
   (`.github/workflows/ci.yml`): typecheck, crypto round-trips, governance
   privacy invariant, AWS SigV4 verified against the published AWS test vector,
   auth/budget/rate-limit/cache behavior end-to-end.
@@ -156,8 +162,65 @@ deployments, so multi-team isolation is enforced at the data layer from day one.
   there is no silent model downgrade — a disallowed model is a clear 403.
 - **No prompt/completion retention** (§3). Any future content-retaining feature
   would be explicit, per-policy, and opt-in.
+- **Not a prompt rewriter / context optimizer.** Conduit does not trim,
+  summarize, dedupe, or otherwise modify the prompt body before forwarding —
+  doing so would break Anthropic's prefix cache (a byte-identical prefix is
+  required for cache hits) and violate the byte-transparent promise that lets
+  your security team approve us. The dashboard's **Context-rot panel**
+  (`/api/usage` → `contextRot`) observes the cost-and-error curve by
+  input-token size and tells you *where* you're paying for rot; the mitigation
+  belongs in the client or agent (prompt caching, conversation compaction,
+  task-aware trimming), not the gateway.
 
-## 11. Coordinated vulnerability disclosure
+## 11. Compliance posture — what we DO and DON'T claim
+
+We try to be precise here because vague compliance language is how vendors lose
+trust during security review. As of this writing Conduit is **solo-built,
+pre-revenue, and pre-formal-audit**. The honest read:
+
+**What is true today:**
+
+- Conduit is **on-prem software you run inside your own perimeter** (§1). Most
+  compliance properties (SOC 2 control coverage, HIPAA controls, ISO 27001
+  control coverage, data residency, BAAs with hyperscalers) are properties of
+  *your environment* running Conduit — they're inherited from your cloud
+  account, your secret manager, your identity provider, your network controls.
+- The software is **designed to help you meet your own SOC 2 / HIPAA / ISO /
+  RBI / DPDP / GDPR obligations**: prompt/completion bodies are never stored,
+  provider keys are AES-256-GCM-sealed, every request is recorded as a
+  metadata-only audit row exportable as RFC-4180 CSV or JSON (§3, §4, §5).
+- Release supply-chain controls are in place: container images are signed via
+  **Sigstore cosign (keyless OIDC)** and a **CycloneDX SBOM** ships as a
+  signed attestation per release (§7).
+
+**What we DO NOT claim today (and will not, until it's true):**
+
+- **No SOC 2 Type II certificate**, no SOC 2 Type I, no Trust Services Criteria
+  attestation. (On the roadmap once design partners + revenue make a formal
+  audit make sense.)
+- **No HIPAA BAA from Conduit as a vendor.** Because Conduit runs in *your*
+  account and never receives PHI on our side, the BAA you need is with your
+  cloud provider (AWS / Azure / GCP), not with us. We will support your
+  internal documentation of the control split.
+- **No ISO 27001, no PCI-DSS, no FedRAMP, no IRAP, no StateRAMP** certifications.
+- **No third-party penetration test report** of the current release. (The code
+  is open to your security team's review under pilot; an independent pentest is
+  on the roadmap pre-GA.)
+
+**What we WILL provide to your security review, free of charge:**
+
+- This whitepaper + the data-flow diagram (§2) in your preferred format.
+- A completed **CAIQ-lite / SIG-lite questionnaire**.
+- The signed image manifests + the CycloneDX SBOM for the exact release you'll
+  run.
+- A vulnerability-disclosure commitment (§12) and a CVE-patching SLA on the
+  versions you're running for the pilot window.
+- Direct engineering access for clarifying questions during review.
+
+If a control or document we don't yet have is a hard gate for your review, tell
+us — we'll either show you the closest equivalent or say so honestly.
+
+## 12. Coordinated vulnerability disclosure
 
 Report security issues to **security@<your-domain>** (PGP key on request). We
 acknowledge within 2 business days and coordinate disclosure with you.
@@ -165,6 +228,9 @@ acknowledge within 2 business days and coordinate disclosure with you.
 ---
 
 *This document is provided to support your security review. A completed
-CAIQ/SIG-lite questionnaire and a data-flow diagram in your preferred format are
-available on request. SOC 2 Type II is on the roadmap; until then we will support
-your audit with the artifacts above and direct engineering access.*
+CAIQ-lite / SIG-lite questionnaire and a data-flow diagram in your preferred
+format are available on request. SOC 2 Type II is on the roadmap (no audit has
+been started yet) — until then we will support your audit with the artifacts
+above, the signed images + SBOM for the release you'll run, and direct
+engineering access. We will not call ourselves "SOC 2 compliant" or
+"HIPAA-compliant" before the corresponding artifact actually exists.*

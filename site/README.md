@@ -2,12 +2,10 @@
 
 Single-file static site (`index.html`) — no build step, no dependencies.
 
-## Before deploying — replace 1 placeholder
+## Before deploying
 
-Search `index.html` for **`CONTACT_EMAIL`** (3 places) and replace with your
-real email, e.g. `mailto:you@example.com?subject=Conduit%20design%20partner`.
-
-Optional: swap the mailto CTAs for a Calendly/booking link.
+Contact email is already wired in (`aneeshgupta709@gmail.com`). Optional: swap
+the mailto CTAs for a Calendly/booking link.
 
 The hero terminal auto-cycles through 4 live scenes (adopt → live request →
 governance block → spend attribution). Tabs in the terminal header let visitors
