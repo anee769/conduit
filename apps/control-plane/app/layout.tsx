@@ -5,9 +5,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
 export const metadata = {
-  title: "Conduit — AI Gateway",
+  title: "Conduit — control plane for AI coding agents",
   description:
-    "On-prem AI gateway: cost attribution, budgets, and data-governance for every LLM request — inside your own cloud.",
+    "On-prem control plane for AI coding agents: per-engineer spend attribution, egress governance, and context-rot observability — inside your own cloud.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

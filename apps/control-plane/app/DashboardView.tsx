@@ -56,7 +56,7 @@ export default function DashboardView(props: DashboardData) {
           </div>
           <div>
             <div className="brand-name">Conduit</div>
-            <div className="brand-sub">{org} · AI gateway — spend &amp; governance</div>
+            <div className="brand-sub">{org} · control plane for AI coding agents — spend · governance · context</div>
           </div>
         </div>
         <nav className="windows">
