@@ -102,8 +102,8 @@ LiteLLM is excellent at model aliasing and routing — Conduit adds the layer yo
 
 Conduit runs **entirely in your own cloud** — no vendor in the request path, no phone-home, air-gappable. See [`SECURITY.md`](SECURITY.md) for the whitepaper (data-flow diagram, what's stored, crypto, fail-closed auth, compliance posture, threat model).
 
-- Container images signed via **Sigstore cosign** (keyless OIDC) — verify with `cosign verify ghcr.io/anee769/conduit-gateway:latest`.
-- **CycloneDX SBOM** attached as a signed attestation per release. Generate one locally with `bash scripts/sbom.sh`.
+- Container images are signed via **Sigstore cosign** (keyless OIDC) and ship with a **CycloneDX SBOM** attestation. Both are wired into [`.github/workflows/release.yml`](.github/workflows/release.yml); the first tagged release will populate `ghcr.io/anee769/conduit-{gateway,control-plane}` for `cosign verify`.
+- Generate an SBOM locally any time with `bash scripts/sbom.sh`.
 - **72 automated tests** run on every PR — including the AWS SigV4 reference vector and a governance privacy invariant (the secret/entity value never appears in stored events).
 
 ## Architecture (briefly)
@@ -153,8 +153,7 @@ Branch flow: feature → `dev` → `master`. CI must pass before merge.
 
 ## Links
 
-- 🌐 Site: [getconduit.vercel.app](https://getconduit.vercel.app)
-- 📦 Repo: [github.com/anee769/conduit](https://github.com/anee769/conduit)
-- 🔒 Security: [`SECURITY.md`](SECURITY.md)
-- 🤝 Run with LiteLLM: [`docs/run-with-litellm.md`](docs/run-with-litellm.md)
-- 📚 Install guide: [`INSTALL.md`](INSTALL.md)
+- Site: [getconduit.vercel.app](https://getconduit.vercel.app)
+- Security posture: [`SECURITY.md`](SECURITY.md)
+- Run with LiteLLM: [`docs/run-with-litellm.md`](docs/run-with-litellm.md)
+- Install guide: [`INSTALL.md`](INSTALL.md)
