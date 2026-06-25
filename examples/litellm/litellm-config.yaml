@@ -43,6 +43,11 @@ litellm_settings:
   drop_params: true
 
 general_settings:
-  # The shared secret Conduit uses to talk to LiteLLM. In Conduit's setup
-  # wizard, paste this as the provider credential `secret`.
-  master_key: ${LITELLM_MASTER_KEY}
+  # Shared secret Conduit sends as `authorization: Bearer ...` when forwarding.
+  # LiteLLM validates it against this string. Override per-environment via the
+  # LITELLM_MASTER_KEY env var (see docker-compose.litellm.yml).
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # LiteLLM's proxy requires a DB even for the simplest master_key flow.
+  # docker-compose.litellm.yml points DATABASE_URL at Conduit's Postgres
+  # (a separate `litellm` schema) so no new service to manage.
+  database_url: os.environ/DATABASE_URL

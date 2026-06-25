@@ -95,6 +95,9 @@ services:
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-}
       DASHBOARD_SECRET: ${DASHBOARD_SECRET:-}
+      # Required for the admin API to write encrypted provider credentials
+      # (must match the gateway's MASTER_ENCRYPTION_KEY).
+      MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY:-change-me-generate-a-32-byte-key}
       # Mirror the gateway's governance policy so the dashboard can show which
       # categories are blocking vs only alerting.
       GOVERNANCE_MODE: ${GOVERNANCE_MODE:-alert}

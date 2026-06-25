@@ -47,7 +47,18 @@ LITELLM_MASTER_KEY=sk-litellm-master-key-change-me
 
 If you're going to forward OpenAI traffic too, also set `OPENAI_API_KEY`.
 
-## 2. Bring up the stack with the LiteLLM sidecar
+## 2. Create the LiteLLM database (one time)
+
+LiteLLM's proxy mode requires Postgres for auth + bookkeeping. The compose file
+points it at Conduit's existing Postgres with a separate `litellm` database, so
+no new service to manage — but you need to create the database once:
+
+```bash
+docker compose up -d postgres
+docker exec conduit-postgres-1 psql -U finops -d postgres -c "CREATE DATABASE litellm;"
+```
+
+## 3. Bring up the stack with the LiteLLM sidecar
 
 ```bash
 docker compose \
@@ -68,7 +79,7 @@ curl http://localhost:4001/health/liveliness
 # → "I'm alive!"
 ```
 
-## 3. Point Conduit's upstream at LiteLLM
+## 4. Point Conduit's upstream at LiteLLM
 
 In `.env`:
 
@@ -83,7 +94,7 @@ Restart the gateway container so it picks up the new values:
 docker compose restart gateway
 ```
 
-## 4. Configure the LiteLLM credential in Conduit
+## 5. Configure the LiteLLM credential in Conduit
 
 Open `http://localhost:3000/setup` (or use the admin API). Create a provider
 credential:
@@ -97,7 +108,7 @@ credential:
 Conduit treats LiteLLM as the upstream provider; the master key is its bearer
 credential. The real Anthropic / OpenAI key never leaves the LiteLLM container.
 
-## 5. Issue a virtual key + send a request
+## 6. Issue a virtual key + send a request
 
 In the setup wizard or via the admin API, create a team + virtual key.
 
@@ -154,6 +165,27 @@ Add the alias there, then `docker compose restart litellm`.
 AWS event-stream framing). Direct Anthropic / OpenAI streaming through LiteLLM
 works. If you see a streaming hang at Bedrock specifically, route via LiteLLM
 to direct Anthropic for now.
+
+**`No connected db.` from LiteLLM** — LiteLLM's proxy mode requires Postgres
+(even for the simplest master-key flow). The provided
+[docker-compose.litellm.yml](../docker-compose.litellm.yml) wires LiteLLM to
+Conduit's existing Postgres on a separate `litellm` database, so you don't need
+another service — but the database must exist. Create it once:
+
+```bash
+docker exec conduit-postgres-1 psql -U finops -d postgres -c "CREATE DATABASE litellm;"
+```
+
+**`next build` ENOENT on `apps/control-plane/.env`** — the local dev workflow
+creates a symlink at `apps/control-plane/.env → ../../.env` that becomes
+dangling inside the Docker build context. The fix is in
+[`.dockerignore`](../.dockerignore); pull `master` if you hit this on an older
+checkout.
+
+**`MASTER_ENCRYPTION_KEY is not set to a real value` from the control-plane** —
+docker-compose now passes `MASTER_ENCRYPTION_KEY` to the control-plane service
+(needed for the admin API to write encrypted provider credentials). Pull
+`master` if you hit this on an older checkout.
 
 ---
 
