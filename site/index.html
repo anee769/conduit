@@ -286,6 +286,7 @@
     <div class="nav-links">
       <a href="#how">How it works</a>
       <a href="#features">Product</a>
+      <a href="#upstreams">Compatibility</a>
       <a href="#security">Security</a>
       <a href="#faq">FAQ</a>
       <a class="btn primary sm" href="mailto:aneeshgupta709@gmail.com?subject=Conduit%20design%20partner">Become a design partner</a>
@@ -295,13 +296,13 @@
 
 <header class="hero wrap">
   <div class="chip"><span class="dot"></span>open for 1–2 design partners · free 90-day pilot · your VPC</div>
-  <h1>The AI gateway your security team can say <span class="grad-text">yes</span> to.</h1>
-  <p class="sub">Conduit is an on-prem gateway for AI coding agents — <b>per-engineer cost attribution</b>, <b>hard budgets</b>, and <b>egress governance</b>, running entirely inside your own cloud. Your code, keys, and prompts <b>never leave your perimeter</b>.</p>
+  <h1>The control plane for AI coding agents your security team can say <span class="grad-text">yes</span> to.</h1>
+  <p class="sub"><b>Per-engineer cost attribution</b>, <b>hard budgets</b>, <b>egress governance</b>, and <b>context-rot observability</b> — running entirely inside your VPC. Drop it on top of <b>LiteLLM, Portkey, or direct Anthropic / OpenAI / Bedrock / Azure</b>. Your code, keys, and prompts never leave your perimeter.</p>
   <div class="cta-row">
     <a class="btn primary" href="mailto:aneeshgupta709@gmail.com?subject=Conduit%20design%20partner">Become a design partner →</a>
     <a class="btn ghost" href="#live">▼&nbsp; See it live</a>
   </div>
-  <p class="micro">one env var to adopt · zero client changes · &lt;5ms overhead</p>
+  <p class="micro">one env var to adopt · zero client changes · open source · runs offline</p>
 
   <div class="term reveal" id="live">
     <div class="term-bar">
@@ -321,14 +322,14 @@
 
 <div class="marquee" aria-hidden="true">
   <div class="mq-track">
-    <span>Claude Code</span><span>Cursor</span><span>Codex</span><span>Aider</span><span>Continue</span><span>Anthropic API</span><span>OpenAI API</span><span>AWS Bedrock</span><span>Azure OpenAI</span><span>any OpenAI-compatible agent</span>
-    <span>Claude Code</span><span>Cursor</span><span>Codex</span><span>Aider</span><span>Continue</span><span>Anthropic API</span><span>OpenAI API</span><span>AWS Bedrock</span><span>Azure OpenAI</span><span>any OpenAI-compatible agent</span>
+    <span>Claude Code</span><span>Cursor</span><span>Codex</span><span>Aider</span><span>Continue</span><span>LiteLLM</span><span>Portkey</span><span>Anthropic API</span><span>OpenAI API</span><span>AWS Bedrock</span><span>Azure OpenAI</span>
+    <span>Claude Code</span><span>Cursor</span><span>Codex</span><span>Aider</span><span>Continue</span><span>LiteLLM</span><span>Portkey</span><span>Anthropic API</span><span>OpenAI API</span><span>AWS Bedrock</span><span>Azure OpenAI</span>
   </div>
 </div>
 
 <section class="wrap reveal stats-sec">
   <div class="stats">
-    <div class="stat"><div class="n">&lt;5ms</div><div class="l">added latency · streaming untouched</div></div>
+    <div class="stat"><div class="n">OSS</div><div class="l">Apache 2.0 · self-host or air-gap</div></div>
     <div class="stat"><div class="n">0</div><div class="l">prompts or completions ever stored</div></div>
     <div class="stat"><div class="n">72</div><div class="l">automated tests, CI-gated</div></div>
     <div class="stat"><div class="n">100%</div><div class="l">inside your cloud · no phone-home</div></div>
@@ -466,6 +467,31 @@
   </div>
 </section>
 
+<section class="wrap reveal" id="upstreams">
+  <div class="sec-head">
+    <p class="kicker">Drop-in compatibility</p>
+    <h2>Works with what you already run.</h2>
+    <p class="lead">Conduit doesn't ask you to rip out your gateway. Point your tools at Conduit, point Conduit's upstream at whatever serves your provider traffic today — one env var.</p>
+  </div>
+  <div class="bento">
+    <div class="cell w2 feature">
+      <div class="ico">🔀</div>
+      <h3>LiteLLM</h3>
+      <p>Already proxying 100+ models through LiteLLM? Set <code>UPSTREAM_ANTHROPIC_URL=http://litellm:4000</code> and Conduit becomes the governance + attribution + audit layer above it. Full walkthrough: <code>docs/run-with-litellm.md</code>.</p>
+    </div>
+    <div class="cell w2 feature">
+      <div class="ico">🛣️</div>
+      <h3>Portkey</h3>
+      <p>Portkey-shaped upstream works the same way — point Conduit at your Portkey URL, keep all your routing and fallback config, add the org-level control plane on top.</p>
+    </div>
+    <div class="cell w2 feature">
+      <div class="ico">🔗</div>
+      <h3>Direct providers</h3>
+      <p>No gateway today? Conduit talks straight to Anthropic, OpenAI, AWS Bedrock (SigV4), or Azure OpenAI. Pick whichever credential your security team already approved.</p>
+    </div>
+  </div>
+</section>
+
 <section class="wrap reveal" id="security">
   <div class="sec-card">
     <div class="sec-head" style="margin-bottom:.4rem">
@@ -496,8 +522,8 @@
       <p>No, and never. Conduit is self-hosted software — you run the containers in your own cloud account. We are not in the request path, we never see your prompts, code, or keys, and there's no telemetry or license callback. The subscription buys the license, updates, and support — not hosting.</p>
     </details>
     <details>
-      <summary>Couldn't we just self-host an open-source gateway like LiteLLM?</summary>
-      <p>You can — if your security team will accept unsupported open source on your AI egress path, and you have a platform team to harden, patch, and document it. Conduit is for orgs where that's not true: a supported, compliance-documented control plane with signed releases, a patching commitment, and someone accountable — plus the governance feedback loop (alert → promote-to-block) built for coding-agent traffic.</p>
+      <summary>We already run LiteLLM (or Portkey). Where does Conduit fit?</summary>
+      <p>On top, as the layer your security and finance teams asked for. LiteLLM is excellent at model aliasing, routing, fallbacks, and the broad provider matrix. It doesn't give you per-engineer attribution, hard budgets, egress governance with a per-org entity allowlist, an auditor-ready CSV export, or context-rot observability — Conduit does. Point your tools at Conduit, point Conduit's upstream at LiteLLM (one env var: <code>UPSTREAM_ANTHROPIC_URL=http://litellm:4000</code>), no client changes, no LiteLLM changes. Full 5-minute walkthrough in the repo: <code>docs/run-with-litellm.md</code>.</p>
     </details>
     <details>
       <summary>Does it change model quality or break streaming?</summary>

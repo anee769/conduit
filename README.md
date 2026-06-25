@@ -1,221 +1,160 @@
-# AI FinOps Gateway
+# Conduit
+
+**The on-prem control plane for AI coding agents.**
+Per-engineer cost attribution · hard budgets · egress governance · context-rot observability · audit-ready exports — all inside your VPC.
 
 [![CI](https://github.com/anee769/conduit/actions/workflows/ci.yml/badge.svg)](https://github.com/anee769/conduit/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Site](https://img.shields.io/badge/site-getconduit.vercel.app-blue)](https://getconduit.vercel.app)
 
-On-prem middleware between a company's apps / AI coding assistants and LLM
-providers — for **cost visibility, budget enforcement, and governance** over
-LLM spend. See [`MVP_SPEC.md`](MVP_SPEC.md) for the full product spec.
+Conduit sits between your AI coding agents (Claude Code, Cursor, Codex, Aider) and whatever provider you already use (Anthropic, OpenAI, Bedrock, Azure — or your existing **LiteLLM** / **Portkey** deployment). One env var to adopt, zero client changes, prompts and completions never stored.
 
-> **Status:** Phase-1 MVP feature-complete (M1–M8) + Phase-2 governance started.
-> A virtual-key data plane that **meters** every request (token/cost → ClickHouse,
-> off the hot path via a tee'd stream), **enforces** model allow-lists, per-key
-> rate limits, and live spend budgets (Redis; hard caps fail closed → 402), serves
-> an **exact-match cache** (free repeats), runs a **data-governance secrets scan**
-> (detect API keys / tokens / private keys leaving the perimeter — alert or block),
-> and ships a **dashboard (password-gated) + admin API + first-run wizard**.
-> Privacy-first: metadata only, never prompts/completions — and the governance
-> scan records the matched *category* only, never the secret value.
+```
+[Claude Code / Cursor / Codex]
+         │  ANTHROPIC_BASE_URL=https://conduit.yourco.dev
+         ▼
+[Conduit]  vk_live_… (per-engineer)
+         │  metering · budgets · governance · audit · context-rot
+         ▼
+[LiteLLM / Portkey / direct providers]
+         │
+         ▼
+[Anthropic / OpenAI / Bedrock / Azure]
+```
 
-### Milestones
-- **M1** transparent streaming proxy · **M2** virtual keys + encrypted creds
-- **M3** token/cost metering → ClickHouse (+ `model_pricing`)
-- **M4** Next.js dashboard (spend by team/model/day, caching savings)
-- **M5** budgets + live enforcement (Redis counters, fail-closed hard caps, threshold alerts)
-- **M6** exact-match cache (`x-finops-cache`, `cache_hit` accounting) + per-key rate limiting
-- **M7** ops hardening (`FAIL_MODE` switch, `support-bundle`, Grafana + Prometheus in [`ops/`](ops/))
-- **M8** admin REST API + first-run setup wizard (`/setup`) + Docker images & compose `app` profile
-- **Phase 2 (in progress)** —
-  - data-governance T1 secrets scan (alert/block, category-only, `451` on block) + dashboard password gate
-  - **per-key/per-model cost attribution** + **exportable audit log** (`/api/audit`, CSV/JSON, metadata-only, gated)
-  - **provider adapters** — sit in front of **AWS Bedrock (SigV4)** or **Azure OpenAI** with no client change
-  - **governance alert→block feedback loop** — promote categories to block via `GOVERNANCE_BLOCK_CATEGORIES`
-  - **T2-lite per-org entity allowlist** (`GOVERNANCE_ENTITIES`) — operator-pasted customer names / codenames / deal codes, whole-word, case-insensitive, value never recorded
-  - **context-rot panel** — bucket requests by input-token size, surface the cost-and-error premium on oversized prompts (FinOps observability; we never modify the prompt)
-  - **Claude Code ready** — `/v1/messages/count_tokens` passthrough (auth, not metered) + `scripts/capture-cost.sh` to snapshot a real session's spend for the pitch
+---
 
-### Run it
+## Why
 
-**Full from-zero guide: [`INSTALL.md`](INSTALL.md)** (Docker or local dev, ~5 min).
+Bedrock / Vertex / Azure private endpoints + no-train BAAs solve the *channel to the vendor*. They don't tell finance who spent the $40k, don't catch secrets at egress, don't give auditors a record, and don't show where context rot is burning your token budget. That's the gap Conduit fills — without ever seeing your prompts.
 
-**Already running LiteLLM?** Conduit drops in front of it as the governance /
-attribution / audit layer — no client changes, no LiteLLM changes.
-See [`docs/run-with-litellm.md`](docs/run-with-litellm.md).
+## What you get
 
-Quick version (all-Docker):
+- **Per-engineer / per-key / per-model cost attribution** — the breakdown a shared API key structurally can't produce.
+- **Hard budgets + model allow-lists** — fail-closed 402 on overage, clear 403 on disallowed model (never a silent downgrade).
+- **Egress governance** — T1 secrets scan (API keys / tokens / private keys) + T2-lite per-org entity allowlist (your customer names, codenames, deal codes). Alert → promote-to-block one category at a time. Records the category, **never the value**.
+- **Context-rot panel** — buckets requests by input-token size and surfaces the cost-and-error-rate curve. Conduit measures; we never modify the prompt (that would break Anthropic's prefix cache).
+- **Auditor-ready export** — every request as a metadata-only CSV/JSON row.
+- **Virtual keys** — engineers hold revocable stand-in keys; the real provider credential is AES-256-GCM-sealed in the gateway and never touches a laptop.
+
+## Quickstart (~2 minutes)
+
 ```bash
-cp .env.example .env                                   # then set MASTER_ENCRYPTION_KEY (openssl rand -base64 32)
-docker compose --profile app up -d --build             # datastores + gateway(:4000) + dashboard(:3000)
+git clone https://github.com/anee769/conduit && cd conduit
+cp .env.example .env
+# generate a real master encryption key
+sed -i.bak "s|^MASTER_ENCRYPTION_KEY=.*|MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32)|" .env && rm .env.bak
+
+docker compose --profile app up -d --build
 docker exec conduit-gateway-1 pnpm --filter @finops/db db:migrate
 docker exec conduit-gateway-1 pnpm --filter @finops/db seed-pricing
-# → open http://localhost:3000/setup to create org → credential → team → virtual key
+
+# → open http://localhost:3000/setup → create org / credential / team / virtual key
 ```
 
-### Tests
-```bash
-bash scripts/run-tests.sh             # unit + live system suite (61 tests) — macOS/Linux
-bash scripts/run-tests.sh --unit-only # pure-logic units, no stack needed
-pwsh scripts/run-tests.ps1            # Windows equivalent
-```
-The bash runner takes full ownership of ports 4000/8787/3000 and starts an
-isolated, mock-backed stack (so it never runs against a real-Anthropic gateway).
-Don't run `pnpm dev` simultaneously — the runner will reclaim its ports.
-
-Unit: crypto, key hashing, usage parsing, cache-key normalization, period
-buckets, **governance secrets scan**. System (live stack): health/ready/metrics,
-auth, allow-list, metering→ClickHouse, cache hit/miss, budget 402, rate-limit 429,
-**governance alert + category recording + secret-never-stored**, admin API + key revocation.
-
-## Security & supply chain
-
-Conduit runs **entirely in your own cloud** — no vendor in the request path, no
-phone-home, air-gappable. See **[`SECURITY.md`](SECURITY.md)** for the full
-whitepaper (data-flow diagram, what's stored, crypto, fail-closed auth, threat
-model) — the artifact that shortens a security review.
-
-- **Signed releases + SBOM:** the [release workflow](.github/workflows/release.yml)
-  publishes images to GHCR, signs them with Sigstore **cosign** (keyless), and
-  attaches a **CycloneDX SBOM** attestation. Generate an SBOM locally with
-  `bash scripts/sbom.sh`.
-- **Not OSS-on-your-egress-path:** why a regulated security team needs a supported,
-  compliance-ready control plane rather than self-hosted open source —
-  [`docs/conduit-vs-self-hosted-oss.md`](docs/conduit-vs-self-hosted-oss.md).
-
-## Development flow
-
-Branches: feature work → PR into **`dev`** → PR from `dev` into **`master`**.
-
-- **`master`** is the always-green release branch.
-- **`dev`** is the integration branch.
-- CI (`.github/workflows/ci.yml`) runs on **every PR** (both hops) and on pushes
-  to `dev`/`master`: workspace typecheck + the full 72-test suite against a live,
-  mock-backed stack. **Only merge a PR when its CI check is green.**
-
-```bash
-git checkout dev && git pull
-git checkout -b feat/my-change          # branch off dev
-# …commit work…
-bash scripts/ci-local.sh                 # run the SAME checks CI runs, before pushing
-#   (or: bash scripts/ci-local.sh --fast  → typecheck + unit only, no Docker)
-git push -u origin feat/my-change
-gh pr create --base dev                   # PR into dev (CI runs)
-# after review/green: merge, then promote dev → master:
-gh pr create --base master --head dev     # PR into master (CI runs again)
-```
-
-> On a free private repo GitHub can't *enforce* "CI must pass before merge"
-> (that needs GitHub Pro rulesets). The check is advisory here — discipline is to
-> merge only on green. Upgrading unlocks one-command server-side enforcement.
-
-## Stack
-
-- **Gateway** (`apps/gateway`) — Hono on Node, the request data plane.
-- **Control plane** (`apps/control-plane`) — Next.js dashboard (built in M4).
-- **Shared types** (`packages/types`) — Zod schemas + domain types.
-- **Datastores** — Postgres (OLTP), ClickHouse (usage analytics), Redis (cache/limits/counters).
-- **Monorepo** — pnpm workspaces.
-
-## Prerequisites
-
-- Node ≥ 22 (Corepack ships with it — used to provide pnpm)
-- Docker (for the datastores)
-
-## Quickstart
-
-```bash
-# 1. Enable pnpm via Corepack (no global install needed)
-corepack enable pnpm
-
-# 2. Install workspace dependencies
-pnpm install
-
-# 3. Copy env defaults
-cp .env.example .env      # PowerShell: Copy-Item .env.example .env
-
-# 4. Bring up Postgres + ClickHouse + Redis
-pnpm compose:up
-
-# 5. Type-check the whole workspace
-pnpm typecheck
-
-# 6. Boot the gateway
-pnpm dev:gateway
-```
-
-Then:
-
-```bash
-curl http://localhost:4000/health     # liveness + version
-curl http://localhost:4000/ready      # readiness (deps stubbed in M0)
-curl http://localhost:4000/metrics    # Prometheus metrics
-```
-
-## Try the proxy (no real API key needed)
-
-Run a local mock upstream and point the gateway at it:
-
-```bash
-# terminal 1 — mock provider on :8787
-pnpm --filter @finops/gateway mock
-
-# terminal 2 — gateway forwarding to the mock
-UPSTREAM_ANTHROPIC_URL=http://localhost:8787 \
-UPSTREAM_OPENAI_URL=http://localhost:8787 \
-pnpm dev:gateway
-
-# terminal 3 — stream a response through the gateway
-curl -N -X POST http://localhost:4000/v1/messages \
-  -H 'content-type: application/json' -H 'x-api-key: test' \
-  -d '{"model":"claude-sonnet-4","stream":true}'
-```
-
-## Database & virtual keys (M2)
-
-The gateway now authenticates virtual keys and stores provider credentials
-encrypted. Set a real `MASTER_ENCRYPTION_KEY` (`openssl rand -base64 32`) and a
-`POSTGRES_URL`, then:
-
-```bash
-# Apply the schema (idempotent)
-pnpm --filter @finops/db db:migrate
-
-# Seed a demo org + team + (encrypted) Anthropic credential + a virtual key.
-# Prints the virtual key token ONCE — copy it.
-DEMO_PROVIDER_KEY=<your-real-anthropic-key> pnpm --filter @finops/db seed
-```
-
-Then call the gateway with the **virtual key** (not the provider key):
-
-```bash
-curl -X POST http://localhost:4000/v1/messages \
-  -H 'content-type: application/json' \
-  -H 'x-api-key: vk_live_xxxxxxxx' \
-  -d '{"model":"claude-sonnet-4","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}'
-```
-
-The gateway looks up the key, enforces its model allow-list, decrypts the
-stored provider credential, and injects it upstream. Regenerate the schema after
-editing `packages/db/src/schema.ts` with `pnpm --filter @finops/db db:generate`.
-
-### Pointing Claude Code at the gateway
-
-Against the real Anthropic API (leave `UPSTREAM_ANTHROPIC_URL` at its default):
+Point any AI tool at it:
 
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:4000
-export ANTHROPIC_AUTH_TOKEN=<your-anthropic-key>   # forwarded upstream (M1)
+export ANTHROPIC_AUTH_TOKEN=vk_live_…       # virtual key from /setup
+claude                                       # or cursor / codex / aider
 ```
 
-> In M1 the client's key is passed straight through. From M2, clients use a
-> **virtual key** and the real provider credential is stored (encrypted) in the
-> gateway instead.
+Full from-zero walkthrough in [`INSTALL.md`](INSTALL.md).
 
-## Layout
+## Works with what you already run
+
+| You run today | Configure Conduit's upstream as |
+|---|---|
+| **LiteLLM** (any model, any provider) | `UPSTREAM_ANTHROPIC_URL=http://litellm:4000` → full walkthrough: [`docs/run-with-litellm.md`](docs/run-with-litellm.md) |
+| **Portkey** | Point `UPSTREAM_OPENAI_URL` / `UPSTREAM_ANTHROPIC_URL` at your Portkey base URL |
+| **Direct Anthropic / OpenAI** | Default — nothing to configure |
+| **AWS Bedrock** | Configure a Bedrock credential in `/setup`; Conduit signs requests with SigV4 |
+| **Azure OpenAI** | Configure an Azure credential (deployment name + `api-version`) in `/setup` |
+
+## How Conduit compares
+
+| | Conduit | LiteLLM | Portkey | Helicone |
+|---|---|---|---|---|
+| Open-source license | Apache 2.0 | MIT | Apache 2.0 (gateway) | MIT |
+| Runs entirely on-prem / in your VPC | ✅ | ✅ | ✅ (enterprise) | ✅ (self-host) |
+| Provider routing + aliasing + fallback | ✅ (any upstream) | ✅ | ✅ | ❌ |
+| **Per-engineer cost attribution** (virtual keys with names) | ✅ | partial (master-key shared bills) | ✅ | ✅ (observe-only) |
+| **Hard budgets** (fail-closed 402) | ✅ | partial | ✅ | ❌ |
+| **Egress governance** (secrets + per-org entity allowlist, alert→block) | ✅ | ❌ | ✅ (guardrails) | ❌ |
+| **Audit-ready CSV/JSON export** (metadata-only) | ✅ | ❌ | partial | ✅ |
+| **Context-rot observability** (cost-and-error curve by input-token size) | ✅ | ❌ | ❌ | ❌ |
+| Prompts / completions **never stored** | ✅ | logs by default | configurable | logs by default |
+| Signed releases + CycloneDX SBOM | ✅ | ❌ | ❌ | ❌ |
+| Designed to sit on top of others | ✅ | n/a | n/a | n/a |
+
+LiteLLM is excellent at model aliasing and routing — Conduit adds the layer your security and finance teams asked for. Portkey is the closest feature overlap but is closed-source enterprise once you need governance + on-prem. Helicone is observability-only (it tells you where tokens went; it doesn't control where they go).
+
+## Honest about what's NOT here
+
+- **No SOC 2 / HIPAA / ISO certification yet.** Won't claim one we don't have. We design Conduit to support *your* audit and provide the artifacts (SBOM, signed images, security whitepaper, CAIQ-lite). See [`SECURITY.md`](SECURITY.md) for the full posture.
+- **No SSO / SAML / RBAC** yet — admin token + dashboard password gate today. On the roadmap when a buyer asks.
+- **Bedrock streaming** isn't done (binary AWS event-stream framing). Bedrock non-streaming `/invoke` works.
+- **Google Vertex adapter** isn't built.
+- **Full ML-driven T2 governance** (entity-type inference) isn't built — only the lite version (operator-pasted entity allowlist). Built against a partner's real traffic, not before.
+
+## Security posture
+
+Conduit runs **entirely in your own cloud** — no vendor in the request path, no phone-home, air-gappable. See [`SECURITY.md`](SECURITY.md) for the whitepaper (data-flow diagram, what's stored, crypto, fail-closed auth, compliance posture, threat model).
+
+- Container images signed via **Sigstore cosign** (keyless OIDC) — verify with `cosign verify ghcr.io/anee769/conduit-gateway:latest`.
+- **CycloneDX SBOM** attached as a signed attestation per release. Generate one locally with `bash scripts/sbom.sh`.
+- **72 automated tests** run on every PR — including the AWS SigV4 reference vector and a governance privacy invariant (the secret/entity value never appears in stored events).
+
+## Architecture (briefly)
+
+- **`apps/gateway`** — Hono on Node, the hot-path data plane. No build step (tsx). Zero-dep ClickHouse client + ioredis.
+- **`apps/control-plane`** — Next.js 15 / React 19 dashboard + admin API + first-run `/setup` wizard.
+- **`packages/db`** — Drizzle schema, AES-256-GCM crypto, key hashing, pricing + budgets.
+- **Stores:** Postgres (config / identity / budgets / pricing) + ClickHouse (append-only `usage_events`) + Redis (cache + rate limits + live budget counters).
+
+Request lifecycle (`apps/gateway/src/routes/proxy.ts`):
 
 ```
-apps/
-  gateway/         Hono data plane (health/metrics in M0)
-  control-plane/   Next.js dashboard (placeholder until M4)
-packages/
-  types/           @finops/types — shared Zod schemas + types
-docker-compose.yml Postgres + ClickHouse + Redis
+auth (vk) → rate limit → model allow-list → budget check
+         → governance scan (T1 secrets + T2-lite entities)
+         → cache lookup → resolve credential → adapter.prepare()
+         → forward + tee stream (client untouched; meter branch in background)
 ```
+
+## Tests
+
+```bash
+bash scripts/run-tests.sh             # full unit + live-system suite (72 tests)
+bash scripts/run-tests.sh --unit-only # pure logic, no Docker stack needed
+pwsh scripts/run-tests.ps1            # Windows equivalent
+```
+
+CI (`.github/workflows/ci.yml`) runs both jobs on every PR — only merge when green.
+
+## Contributing
+
+PRs welcome. Quick path:
+
+```bash
+git checkout -b feat/my-change
+# …
+bash scripts/ci-local.sh              # runs the same checks CI runs
+bash scripts/ci-local.sh --fast       # typecheck + unit only, no Docker
+git push -u origin feat/my-change
+gh pr create --base dev
+```
+
+Branch flow: feature → `dev` → `master`. CI must pass before merge.
+
+## License
+
+[Apache License 2.0](LICENSE) — same license as Kubernetes, Terraform, Kafka. Use it commercially, modify it, vendor it; please don't claim Conduit is your own work.
+
+## Links
+
+- 🌐 Site: [getconduit.vercel.app](https://getconduit.vercel.app)
+- 📦 Repo: [github.com/anee769/conduit](https://github.com/anee769/conduit)
+- 🔒 Security: [`SECURITY.md`](SECURITY.md)
+- 🤝 Run with LiteLLM: [`docs/run-with-litellm.md`](docs/run-with-litellm.md)
+- 📚 Install guide: [`INSTALL.md`](INSTALL.md)
