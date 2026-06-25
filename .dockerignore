@@ -15,6 +15,9 @@
 .env
 .env.*
 !.env.example
+# The dev-time convenience symlink (apps/control-plane/.env → ../../.env) is
+# dangling inside the container and breaks `next build` with ENOENT on stat.
+apps/control-plane/.env
 
 # Tests + ops not needed in the runtime images
 tests

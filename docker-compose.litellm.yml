@@ -1,0 +1,42 @@
+# Overlay compose file that adds a LiteLLM proxy as a sidecar to the existing
+# Conduit stack — the demonstration of the (b) positioning: Conduit sits in
+# front of an existing OSS gateway as the governance / attribution / audit /
+# context-rot control plane, with no client changes.
+#
+# Usage:
+#   1. Put real provider keys in .env:
+#        ANTHROPIC_API_KEY=sk-ant-...
+#        OPENAI_API_KEY=sk-...        # optional
+#   2. Bring up the LiteLLM sidecar alongside the rest of the stack:
+#        docker compose -f docker-compose.yml -f docker-compose.litellm.yml up
+#   3. Point the gateway at it:
+#        UPSTREAM_ANTHROPIC_URL=http://litellm:4000
+#        UPSTREAM_OPENAI_URL=http://litellm:4000
+#   4. In the Conduit setup wizard, configure a credential of provider="openai"
+#      (or "anthropic") with secret = LITELLM_MASTER_KEY. Conduit forwards
+#      Bearer / x-api-key tokens as LiteLLM expects.
+#
+# Full walkthrough: docs/run-with-litellm.md
+
+services:
+  litellm:
+    container_name: conduit-litellm
+    # Built from a tiny Dockerfile that bakes the config in. Avoids the macOS
+    # Docker Desktop bind-mount permission issue (refuses to mount from
+    # ~/Desktop). Override the baked config by overriding `command:` here.
+    build:
+      context: ./examples/litellm
+      dockerfile: Dockerfile
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-litellm-master-key-change-me}
+      # LiteLLM's proxy mode requires a DB (auth + spend bookkeeping) even
+      # when only the master_key is used. Reusing Conduit's existing Postgres
+      # with a separate `litellm` database — no new service to manage.
+      DATABASE_URL: postgres://finops:finops@postgres:5432/litellm
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports:
+      - "4001:4000"   # exposed on host:4001 so it doesn't collide with Conduit's :4000
