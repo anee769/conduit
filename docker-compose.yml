@@ -66,8 +66,11 @@ services:
       POSTGRES_URL: postgres://finops:finops@postgres:5432/finops
       CLICKHOUSE_URL: http://finops:finops@clickhouse:8123/finops
       REDIS_URL: redis://redis:6379
-      UPSTREAM_ANTHROPIC_URL: https://api.anthropic.com
-      UPSTREAM_OPENAI_URL: https://api.openai.com
+      # Default to the direct provider APIs; override in .env to put the gateway
+      # in front of LiteLLM / Portkey / a mock upstream:
+      #   UPSTREAM_ANTHROPIC_URL=http://litellm:4000
+      UPSTREAM_ANTHROPIC_URL: ${UPSTREAM_ANTHROPIC_URL:-https://api.anthropic.com}
+      UPSTREAM_OPENAI_URL: ${UPSTREAM_OPENAI_URL:-https://api.openai.com}
       # Data governance (T1 secrets scan). Promote categories to block one at a
       # time via GOVERNANCE_BLOCK_CATEGORIES while the global mode stays alert.
       GOVERNANCE_ENABLED: ${GOVERNANCE_ENABLED:-on}
