@@ -5,10 +5,11 @@ assistants and LLM providers (OpenAI, Anthropic, Azure, …) for **cost
 visibility, budget enforcement, and governance** over AI spend — including
 proprietary code written by Claude Code / Codex / Copilot.
 
-**Wedge:** FinOps + governance for **regulated, code-sensitive enterprises**
-(finance, GCCs). On-prem-capable, cloud-portable. Built solo. Full product spec
-in [`MVP_SPEC.md`](MVP_SPEC.md) — read it for market context, locked decisions,
-data model, pricing, and the §13 onboarding design.
+**Wedge:** the internal control plane for AI coding agents — per-engineer
+attribution, hard budgets, egress governance, audit, context-rot observability.
+Runs entirely inside the customer's perimeter; works on top of any
+OpenAI-compatible upstream (direct providers, AWS Bedrock, Azure OpenAI, or an
+existing LiteLLM / Portkey deployment). On-prem-capable, cloud-portable.
 
 ---
 
@@ -236,19 +237,16 @@ SaaS gateway (data can't leave the perimeter to be inspected) → an on-prem pro
 the only place it can run. Harness now ships a competing gateway (on-prem too) →
 cost parity is assumed; governance + perimeter is the differentiation.
 
-**Field-research re-cut (2026-06, see `MARKET_SIGNALS.md`):** ~20 regulated
-practitioners on Reddit converged on a sharper truth. **The perimeter is now
-table-stakes too** — the consensus answer is "Bedrock/Vertex/Azure private endpoint
-+ no-train contract/BAA," which secures the *channel to the vendor*. So Conduit
+**Positioning re-cut:** The perimeter is now table-stakes for regulated buyers —
+the standard answer is a private endpoint (Bedrock / Vertex / Azure) plus a
+no-train contract / BAA, which secures the *channel to the vendor*. Conduit
 stops leading with "data never leaves your perimeter" and leads with the half
-nobody solved: **the internal control plane** (per-user/per-model attribution,
-budgets, egress governance, audit) that cloud-hosted models + contracts leave
-empty. Bedrock/Azure become **substrate we sit in front of, not competitors.** Two
-validated GTM hooks: *governed AI vs shadow AI* (bans → personal accounts w/ prod
-code) and *time-to-yes* ("compliance signed off faster because governance was built
-in, not bolted on"). A direct competitor (Reddit "DurthVadr") independently landed
-on the same architecture and validated **"classify the request, not the code"** +
-alert→promote-to-block as how governance actually ships.
+the cloud-hosted-model contracts leave empty: **the internal control plane**
+(per-user / per-model attribution, budgets, egress governance, audit, context-rot
+observability). Bedrock / Azure become **substrate we sit in front of, not
+competitors.** Two GTM hooks: *governed AI vs shadow AI* (bans → personal
+accounts with prod code) and *time-to-yes* (compliance signed off faster because
+governance was built in, not bolted on).
 
 **NOW — design-partner-ready core (finish/polish):**
 1. ✅ **T1 secrets scan (DONE)** — `governance/scan.ts` (pure, unit-tested) at hot-path
@@ -298,12 +296,12 @@ alert→promote-to-block as how governance actually ships.
    path between `alert` (no protection) and `block` (451 kills the session). Swap
    sensitive *values* (secrets, customer names, IDs) for structurally-valid fakes
    before forwarding, keep a per-request mapping, and reverse-map the completion so
-   the user never sees REDACTED garbage. Field-validated as "what moved them from
-   banned to approved" (Reddit + competitor SHIM/getshim.tech). Two caveats kept
+   the user never sees REDACTED garbage. Field-validated as "what moves orgs from
+   banned to approved." Two caveats kept
    honest: (a) it protects *values in* the code, NOT the proprietary *logic* — for
    logic-is-the-asset orgs, perimeter containment is still the only answer; (b) the
    hard part is reconstruction inside a STREAMED completion (the tee sees fragments).
-   Our edge vs SHIM: do it **in-perimeter**, as one governance mode under the same
+   Our edge: do it **in-perimeter**, as one governance mode under the same
    control plane (budgets/allow-lists/attribution/audit) — not a SaaS privacy bolt-on.
 
 **LATER:** Bedrock *streaming* (AWS event-stream framing); Google Vertex adapter
@@ -324,30 +322,9 @@ violates the quality-neutral promise. Context optimization belongs in the client
 images (compose config is validated but images not yet built), clean install doc,
 wire the test runner into CI, capture one real before/after cost number.
 
-**Decision log:** Hermes agent **dropped** (agent framework, a potential gateway
-*user* not a dependency). Cost-lever research captured in MVP_SPEC §11. Key
-finding (arxiv 2601.06007 + Chroma context-rot): prompt caching and context pruning
-CONFLICT — pruning invalidates the cache prefix; and context rot means relevant-only
-context beats full context, so optimization belongs client-side, never at the proxy.
-
-**Go-to-market:** design-partner pitch (free, for feedback) right after MVP —
-that's NOW. Warm prospects researched: **ThoughtSpot** (already blogged about
-"FinOps for LLMs" — strongest fit), **SpotDraft** (AI-native CLM, high LLM
-spend), **PriceLabs** (lower priority). Commercial pitch comes after Phase 2.
-Pricing: annual platform license (seat/vkey tiers) for on-prem enterprise;
-platform-fee + usage for managed SaaS later.
-
-**Design-partner sourcing (don't single-thread on one warm intro):** run a small
-outbound pipeline of 15–20 qualified targets in parallel; expect a low hit rate, so
-volume matters. ICP filter (from `MARKET_SIGNALS.md`): regulated/code-sensitive,
-50–500 eng, $20k+/mo LLM spend OR actively wrestling the approval problem, runs in
-own cloud, AND a leak that *can't* be blame-shifted (rules out orgs treating a BAA
-as liability transfer). Sourcing channels: (1) the Reddit thread itself — DM the
-genuine practitioners who described the exact pain (lifelong1250 shared-IAM-role,
-Mr_Cromer infosec, Gesha24 no-metric) — warmest leads available, they self-
-identified; (2) Indian fintech under RBI localization (Groww, Razorpay, Zerodha,
-Jupiter, CRED) via founder/eng-leader warm intros; (3) GCCs in finance/healthcare;
-(4) YC/Indian-startup directories filtered for AI-native + regulated-data;
-(5) LinkedIn search on "Head of Platform/Security/DevEx" at fintech/healthtech.
-Pitch is feedback-first, free 60–90 days in their VPC, not a sale. Target: 3–5
-serious conversations, land 1–2 partners.
+**Decision log:** Key finding (Chroma context-rot research + prompt-cache
+mechanics): prompt caching and context pruning CONFLICT — pruning invalidates
+the byte-identical cache prefix, and context rot means relevant-only context
+beats full context. So context optimization belongs client-side, never at the
+proxy. Conduit *measures* context rot (per-bucket cost / latency / error rate)
+but never modifies the prompt.
