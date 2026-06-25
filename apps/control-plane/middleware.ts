@@ -24,5 +24,8 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|login).*)"],
+  // /security is publicly viewable on purpose — it's honest posture disclosure
+  // (no secrets returned, only the SHAPE of each setting). Lets buyers and
+  // auditors verify what's enforced without logging in.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|login|security).*)"],
 };

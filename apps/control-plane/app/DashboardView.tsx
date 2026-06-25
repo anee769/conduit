@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ThemeToggle from "./ThemeToggle";
 import type {
   Summary,
   ModelRow,
@@ -65,6 +66,8 @@ export default function DashboardView(props: DashboardData) {
               {w}d
             </a>
           ))}
+          <a href="/security" className="win" title="Security posture">Security</a>
+          <ThemeToggle />
         </nav>
       </header>
 
