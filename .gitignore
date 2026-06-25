@@ -20,3 +20,4 @@ support-bundle-*/
 
 # Local cost-capture artifacts (may contain org/usage data)
 cost-capture-*/
+CLAUDE.md

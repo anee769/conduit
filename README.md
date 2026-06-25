@@ -37,6 +37,10 @@ LLM spend. See [`MVP_SPEC.md`](MVP_SPEC.md) for the full product spec.
 
 **Full from-zero guide: [`INSTALL.md`](INSTALL.md)** (Docker or local dev, ~5 min).
 
+**Already running LiteLLM?** Conduit drops in front of it as the governance /
+attribution / audit layer — no client changes, no LiteLLM changes.
+See [`docs/run-with-litellm.md`](docs/run-with-litellm.md).
+
 Quick version (all-Docker):
 ```bash
 cp .env.example .env                                   # then set MASTER_ENCRYPTION_KEY (openssl rand -base64 32)
