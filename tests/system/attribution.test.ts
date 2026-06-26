@@ -23,9 +23,13 @@ before(async () => {
 });
 
 test("per-key attribution: /api/usage byKey names the key and attributes cost", async () => {
+  // Wait until BOTH metered requests are visible — the metering buffer flushes
+  // asynchronously, so the key can show up in byKey with only the first event
+  // counted before the second one lands.
   const row = await waitFor(async () => {
     const data = await adminGet(`/api/usage?days=1`);
-    return (data.byKey ?? []).find((k: any) => k.keyId === vkId);
+    const r = (data.byKey ?? []).find((k: any) => k.keyId === vkId);
+    return r && r.requests >= 2 ? r : null;
   });
   assert.equal(row.keyName, keyName, "key resolved to its human name");
   assert.ok(row.keyPrefix?.startsWith("vk_live_"), "key prefix surfaced");
