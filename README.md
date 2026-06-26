@@ -102,7 +102,12 @@ LiteLLM is excellent at model aliasing and routing — Conduit adds the layer yo
 
 Conduit runs **entirely in your own cloud** — no vendor in the request path, no phone-home, air-gappable. See [`SECURITY.md`](SECURITY.md) for the whitepaper (data-flow diagram, what's stored, crypto, fail-closed auth, compliance posture, threat model).
 
-- Container images are signed via **Sigstore cosign** (keyless OIDC) and ship with a **CycloneDX SBOM** attestation. Both are wired into [`.github/workflows/release.yml`](.github/workflows/release.yml); the first tagged release will populate `ghcr.io/anee769/conduit-{gateway,control-plane}` for `cosign verify`.
+- Container images are signed via **Sigstore cosign** (keyless OIDC) and ship with a **CycloneDX SBOM** attestation. Released to `ghcr.io/anee769/conduit-gateway` and `ghcr.io/anee769/conduit-control-plane` on every `v*` git tag (see [`.github/workflows/release.yml`](.github/workflows/release.yml)). Verify any released tag:
+  ```bash
+  cosign verify ghcr.io/anee769/conduit-gateway:<tag> \
+    --certificate-identity-regexp 'https://github.com/anee769/conduit' \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com
+  ```
 - Generate an SBOM locally any time with `bash scripts/sbom.sh`.
 - **72 automated tests** run on every PR — including the AWS SigV4 reference vector and a governance privacy invariant (the secret/entity value never appears in stored events).
 

@@ -5,14 +5,22 @@ name: Release (signed images + SBOM)
 # SBOM as a signed attestation. This is the supply-chain provenance a regulated
 # security review asks for: verifiable, signed artifacts + a dependency inventory.
 #
-# Triggered MANUALLY for now (workflow_dispatch) so it never red-Xs master before
-# the registry/permissions are set up. To make it run on tagged releases later,
-# uncomment the `push: tags` trigger.
+# Trigger:
+#   - automatically on a tag matching `v*` (the supported release path), or
+#   - manually via workflow_dispatch (e.g. to re-publish from `master` without
+#     a new tag — produces only the :latest + :<sha> tags, no :v* tag).
 
 on:
+  push:
+    tags: ["v*"]
   workflow_dispatch:
-  # push:
-  #   tags: ["v*"]
+
+# Prevent a double-run if the same tag is pushed twice in quick succession, or if
+# someone clicks workflow_dispatch twice. Only the latest run for a given ref
+# completes; older queued runs are cancelled.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -35,8 +43,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set lowercase image name
-        run: echo "IMAGE=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.name }}" >> "$GITHUB_ENV"
+      - name: Set image name + short sha + tag set
+        run: |
+          echo "IMAGE=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.name }}" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
+          # On a v* tag push, add the version tag (e.g. :v0.1.0 and :0.1.0).
+          # On workflow_dispatch from a branch, only :latest + :<short-sha> apply.
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME}"          # e.g. v0.1.0
+            VERSION_BARE="${VERSION#v}"           # e.g. 0.1.0
+            {
+              echo "TAGS<<EOF"
+              echo "${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.name }}:latest"
+              echo "${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.name }}:${VERSION}"
+              echo "${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.name }}:${VERSION_BARE}"
+              echo "${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.name }}:${GITHUB_SHA:0:7}"
+              echo "EOF"
+            } >> "$GITHUB_ENV"
+          else
+            {
+              echo "TAGS<<EOF"
+              echo "${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.name }}:latest"
+              echo "${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.name }}:${GITHUB_SHA:0:7}"
+              echo "EOF"
+            } >> "$GITHUB_ENV"
+          fi
 
       - uses: docker/setup-buildx-action@v3
 
@@ -54,9 +85,7 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          tags: |
-            ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:${{ github.sha }}
+          tags: ${{ env.TAGS }}
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
@@ -70,7 +99,7 @@ jobs:
       - name: Generate SBOM (CycloneDX)
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.IMAGE }}:${{ github.sha }}
+          image: ${{ env.IMAGE }}:${{ env.SHORT_SHA }}
           format: cyclonedx-json
           output-file: sbom-${{ matrix.name }}.cyclonedx.json
 
