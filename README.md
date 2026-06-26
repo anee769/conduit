@@ -37,22 +37,51 @@ Bedrock / Vertex / Azure private endpoints + no-train BAAs solve the *channel to
 - **Auditor-ready export** — every request as a metadata-only CSV/JSON row.
 - **Virtual keys** — engineers hold revocable stand-in keys; the real provider credential is AES-256-GCM-sealed in the gateway and never touches a laptop.
 
-## Quickstart (~2 minutes)
+## Quickstart
+
+### Option A — run the signed release (no build, ~30 seconds)
+
+Pulls the latest signed images from GHCR (verifiable via `cosign verify`, see [Security posture](#security-posture)).
 
 ```bash
-git clone https://github.com/anee769/conduit && cd conduit
-cp .env.example .env
-# generate a real master encryption key
+# 1. Get the compose file + env template (no full clone needed)
+curl -fsSL https://raw.githubusercontent.com/anee769/conduit/master/docker-compose.yml -o docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/anee769/conduit/master/.env.example -o .env
+
+# 2. Generate a real master encryption key
 sed -i.bak "s|^MASTER_ENCRYPTION_KEY=.*|MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32)|" .env && rm .env.bak
 
-docker compose --profile app up -d --build
+# 3. Pull the signed images + start
+docker compose --profile app pull
+docker compose --profile app up -d
+
+# 4. Run migrations + seed the pricing book (one-time)
 docker exec conduit-gateway-1 pnpm --filter @finops/db db:migrate
 docker exec conduit-gateway-1 pnpm --filter @finops/db seed-pricing
 
 # → open http://localhost:3000/setup → create org / credential / team / virtual key
 ```
 
-Point any AI tool at it:
+Pin to a specific release by exporting `GATEWAY_IMAGE` and `CONTROL_PLANE_IMAGE` before `up`:
+
+```bash
+export GATEWAY_IMAGE=ghcr.io/anee769/conduit-gateway:v0.1.0
+export CONTROL_PLANE_IMAGE=ghcr.io/anee769/conduit-control-plane:v0.1.0
+```
+
+### Option B — build from source (~2 minutes, for hacking)
+
+```bash
+git clone https://github.com/anee769/conduit && cd conduit
+cp .env.example .env
+sed -i.bak "s|^MASTER_ENCRYPTION_KEY=.*|MASTER_ENCRYPTION_KEY=$(openssl rand -base64 32)|" .env && rm .env.bak
+
+docker compose --profile app up -d --build
+docker exec conduit-gateway-1 pnpm --filter @finops/db db:migrate
+docker exec conduit-gateway-1 pnpm --filter @finops/db seed-pricing
+```
+
+### Point any AI tool at it
 
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:4000

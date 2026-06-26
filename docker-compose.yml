@@ -55,6 +55,11 @@ services:
   # `docker compose --profile app up --build` brings up the full stack.
   gateway:
     profiles: ["app"]
+    # `image:` + `build:` together = pull the published image by default
+    # (so `docker compose pull` works for non-cloned installs), fall through
+    # to `build:` only when `--build` is passed explicitly. Pin a specific
+    # release by setting GATEWAY_IMAGE in .env (e.g. ghcr.io/anee769/conduit-gateway:v0.1.0).
+    image: ${GATEWAY_IMAGE:-ghcr.io/anee769/conduit-gateway:latest}
     build:
       context: .
       dockerfile: Dockerfile.gateway
@@ -89,6 +94,7 @@ services:
 
   control-plane:
     profiles: ["app"]
+    image: ${CONTROL_PLANE_IMAGE:-ghcr.io/anee769/conduit-control-plane:latest}
     build:
       context: .
       dockerfile: Dockerfile.control-plane
