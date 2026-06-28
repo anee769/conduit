@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 const PROVIDERS = new Set(["openai", "anthropic", "azure"]);
 
 export async function GET(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
     const orgId = await resolveOrgId(new URL(req.url).searchParams.get("orgId") ?? undefined);
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = await requireAdmin(req);
   if (denied) return denied;
   const body = await req.json().catch(() => ({}));
   if (!PROVIDERS.has(body?.provider)) {
