@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 /** Revoke a virtual key. The gateway rejects revoked keys on its next lookup. */
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const denied = requireAdmin(req);
+  const denied = await requireAdmin(req);
   if (denied) return denied;
   const { id } = await params;
   try {

@@ -54,14 +54,20 @@ export function computePosture(): Posture {
     },
     {
       label: "Admin API auth",
-      status: adminTokenSet ? "enforced" : (isProd && !allowOpen ? "enforced" : (allowOpen ? "off" : "partial")),
-      detail: adminTokenSet
-        ? "bearer token (constant-time compare)"
-        : isProd && !allowOpen
-          ? "blocked — production refuses calls until ADMIN_TOKEN is set"
-          : allowOpen
-            ? "open by explicit opt-in (ALLOW_OPEN_ADMIN=1) — do not run this in production"
-            : "open in dev — set ADMIN_TOKEN before exposing the dashboard",
+      status: adminTokenSet || dashPwdSet
+        ? "enforced"
+        : (isProd && !allowOpen ? "enforced" : (allowOpen ? "off" : "partial")),
+      detail: adminTokenSet && dashPwdSet
+        ? "bearer ADMIN_TOKEN (programmatic) OR dashboard cookie (browser) — both constant-time compared"
+        : adminTokenSet
+          ? "bearer ADMIN_TOKEN (programmatic, constant-time compare) — set DASHBOARD_PASSWORD to also allow browser auth"
+          : dashPwdSet
+            ? "dashboard cookie (browser) — set ADMIN_TOKEN to also allow programmatic auth"
+            : isProd && !allowOpen
+              ? "blocked — production refuses calls until ADMIN_TOKEN or DASHBOARD_PASSWORD is set"
+              : allowOpen
+                ? "open by explicit opt-in (ALLOW_OPEN_ADMIN=1) — do not run this in production"
+                : "open in dev — set ADMIN_TOKEN or DASHBOARD_PASSWORD before exposing the dashboard",
     },
     {
       label: "Provider credentials at rest",
