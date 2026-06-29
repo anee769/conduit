@@ -15,9 +15,14 @@ type Status = {
   steps: { org: boolean; credential: boolean; team: boolean; virtualKey: boolean };
 };
 
+type Team = { id: string; name: string };
+type Key = { id: string; name: string; keyPrefix: string | null; teamId: string | null };
+
 export default function SetupWizard() {
   const [adminToken, setAdminToken] = useState("");
   const [status, setStatus] = useState<Status | null>(null);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [keys, setKeys] = useState<Key[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [firstSeen, setFirstSeen] = useState(false);
@@ -39,6 +44,15 @@ export default function SetupWizard() {
       setErr(null);
       setConnected(true);
       setStatus(await r.json());
+      // Pull the live team + key lists so the management sections always reflect
+      // reality (and so the key form can offer a team dropdown). Best-effort —
+      // a 401 here just leaves the lists empty until the admin token is entered.
+      const [tr, kr] = await Promise.all([
+        fetch("/api/admin/teams", { headers: headers(), cache: "no-store" }),
+        fetch("/api/admin/keys", { headers: headers(), cache: "no-store" }),
+      ]);
+      if (tr.ok) setTeams((await tr.json()).teams ?? []);
+      if (kr.ok) setKeys((await kr.json()).keys ?? []);
     } catch (e) { setErr(String(e)); setConnected(false); }
   }, [headers]);
 
@@ -75,6 +89,7 @@ export default function SetupWizard() {
   }
 
   const [form, setForm] = useState({ orgName: "Acme", provider: "anthropic", apiKey: "", team: "Engineering", keyName: "Engineering key" });
+  const [selectedTeam, setSelectedTeam] = useState<string>("");
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   async function run(step: string) {
@@ -83,7 +98,11 @@ export default function SetupWizard() {
       if (step === "credential") await post("/api/admin/credentials", { provider: form.provider, displayName: form.provider, apiKey: form.apiKey });
       if (step === "team") await post("/api/admin/teams", { name: form.team });
       if (step === "key") {
-        const res = await post("/api/admin/keys", { name: form.keyName });
+        // Attribute the key to a team. Default to the first team when the
+        // dropdown hasn't been touched, so a wizard-driven key is NEVER created
+        // unassigned (the old bug). Only omit teamId if no team exists at all.
+        const teamId = selectedTeam || teams[0]?.id;
+        const res = await post("/api/admin/keys", { name: form.keyName, ...(teamId ? { teamId } : {}) });
         setCreatedKey(res.virtualKey);
       }
       await refresh();
@@ -98,7 +117,7 @@ export default function SetupWizard() {
       <header className="head">
         <div>
           <h1>Setup</h1>
-          <span className="muted">AI FinOps Gateway · first-run wizard</span>
+          <span className="muted">Conduit · setup &amp; team / key management</span>
         </div>
         <a className="win" href="/">Dashboard →</a>
       </header>
@@ -143,14 +162,50 @@ export default function SetupWizard() {
           </div>
         </section>
       )}
-      {s?.credential && !s?.team && (
-        <section className="card"><h2>3 · Create team</h2>
-          <div className="row"><input className="in" value={form.team} onChange={(e) => set("team", e.target.value)} /><button className="btn" onClick={() => void run("team")}>Create</button></div>
+      {/* Teams — always available once a credential exists, so you can add a
+          2nd / 3rd team any time (not just during first-run). */}
+      {s?.credential && (
+        <section className="card">
+          <h2>Teams <span className="muted">· {teams.length}</span></h2>
+          {teams.length > 0 && (
+            <ul className="steps" style={{ marginBottom: ".75rem" }}>
+              {teams.map((t) => <li key={t.id}><span className="tick on">✓</span> {t.name}</li>)}
+            </ul>
+          )}
+          <div className="row">
+            <input className="in" placeholder="Team name (e.g. Data Platform)" value={form.team} onChange={(e) => set("team", e.target.value)} />
+            <button className="btn" onClick={() => void run("team")}>Add team</button>
+          </div>
         </section>
       )}
-      {s?.team && !s?.virtualKey && (
-        <section className="card"><h2>4 · Generate virtual key</h2>
-          <div className="row"><input className="in" value={form.keyName} onChange={(e) => set("keyName", e.target.value)} /><button className="btn" onClick={() => void run("key")}>Generate</button></div>
+
+      {/* Virtual keys — always available once a team exists. Each key is
+          attributed to a team (the dropdown), so spend never lands in
+          "Unassigned". */}
+      {s?.team && (
+        <section className="card">
+          <h2>Virtual keys <span className="muted">· {keys.length}</span></h2>
+          {keys.length > 0 && (
+            <ul className="steps" style={{ marginBottom: ".75rem" }}>
+              {keys.map((k) => {
+                const team = teams.find((t) => t.id === k.teamId);
+                return (
+                  <li key={k.id}>
+                    <span className="tick on">✓</span> {k.name}
+                    <span className="muted"> · {k.keyPrefix ?? "vk_live_…"} · {team ? team.name : "Unassigned"}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="row">
+            <input className="in" placeholder="Key name (e.g. priya — claude-code)" value={form.keyName} onChange={(e) => set("keyName", e.target.value)} />
+            <select className="in" value={selectedTeam} onChange={(e) => setSelectedTeam(e.target.value)}>
+              <option value="">{teams[0] ? `Team: ${teams[0].name} (default)` : "No team"}</option>
+              {teams.map((t) => <option key={t.id} value={t.id}>Team: {t.name}</option>)}
+            </select>
+            <button className="btn" onClick={() => void run("key")}>Generate key</button>
+          </div>
         </section>
       )}
 
