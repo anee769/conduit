@@ -235,32 +235,35 @@ export type KeyRow = {
  * "which key burned the budget, and on which model."
  */
 export async function getByKey(days: number): Promise<KeyRow[]> {
-  const rows = await chQuery<Record<string, unknown>>(`
-    SELECT virtual_key_id, count() AS requests, sum(cost_usd) AS cost_usd
-    FROM usage_events
-    WHERE ${since(days)}
-    GROUP BY virtual_key_id
-    ORDER BY cost_usd DESC`);
+  // Fetch ALL keys from Postgres (source of truth) — keys with zero usage
+  // still show up so operators can see every issued key, not just active ones.
+  const [keyRows, teamRows, usageRows] = await Promise.all([
+    db.select({ id: virtualKeys.id, name: virtualKeys.name, prefix: virtualKeys.keyPrefix, teamId: virtualKeys.teamId })
+      .from(virtualKeys),
+    db.select({ id: teams.id, name: teams.name }).from(teams),
+    chQuery<Record<string, unknown>>(`
+      SELECT virtual_key_id, count() AS requests, sum(cost_usd) AS cost_usd
+      FROM usage_events
+      WHERE ${since(days)}
+      GROUP BY virtual_key_id`),
+  ]);
 
-  const keyRows = await db
-    .select({ id: virtualKeys.id, name: virtualKeys.name, prefix: virtualKeys.keyPrefix, teamId: virtualKeys.teamId })
-    .from(virtualKeys);
-  const teamRows = await db.select({ id: teams.id, name: teams.name }).from(teams);
   const teamNames = new Map(teamRows.map((t) => [t.id, t.name]));
-  const keyMeta = new Map(keyRows.map((k) => [k.id, k]));
+  const usage = new Map(usageRows.map((r) => [String(r.virtual_key_id), r]));
 
-  return rows.map((r) => {
-    const keyId = r.virtual_key_id ? String(r.virtual_key_id) : null;
-    const meta = keyId ? keyMeta.get(keyId) : undefined;
-    return {
-      keyId,
-      keyName: meta?.name ?? (keyId ? `key ${keyId.slice(0, 8)}` : "Unattributed"),
-      keyPrefix: meta?.prefix ?? null,
-      teamName: meta?.teamId ? (teamNames.get(meta.teamId) ?? "—") : "—",
-      requests: n(r.requests),
-      costUsd: n(r.cost_usd),
-    };
-  });
+  return keyRows
+    .map((k) => {
+      const u = usage.get(k.id);
+      return {
+        keyId: k.id,
+        keyName: k.name,
+        keyPrefix: k.prefix ?? null,
+        teamName: k.teamId ? (teamNames.get(k.teamId) ?? "—") : "—",
+        requests: n(u?.requests),
+        costUsd: n(u?.cost_usd),
+      };
+    })
+    .sort((a, b) => b.costUsd - a.costUsd);
 }
 
 export type AuditRow = {
