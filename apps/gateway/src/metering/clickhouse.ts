@@ -90,7 +90,8 @@ export async function initUsageSchema(): Promise<void> {
       http_status     UInt16,
       input_tokens    UInt32,
       output_tokens   UInt32,
-      cached_tokens   UInt32,
+      cached_tokens            UInt32,
+      cache_creation_tokens    UInt32 DEFAULT 0,
       cost_usd        Float64,
       latency_ms      UInt32,
       ttft_ms         Nullable(UInt32),
@@ -108,5 +109,6 @@ export async function initUsageSchema(): Promise<void> {
   // ALTER ... ADD COLUMN IF NOT EXISTS is a no-op when the column already exists.
   await chExec(`ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS governance_flagged UInt8 DEFAULT 0`);
   await chExec(`ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS governance_categories Array(String) DEFAULT []`);
+  await chExec(`ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS cache_creation_tokens UInt32 DEFAULT 0`);
   logger.info("usage_events schema ready");
 }

@@ -21,6 +21,7 @@ export type Summary = {
   inputTokens: number;
   outputTokens: number;
   cachedTokens: number;
+  cacheCreationTokens: number;
   cacheSavingsUsd: number;
   governanceFlagged: number;
 };
@@ -33,6 +34,7 @@ export type ModelRow = {
   inputTokens: number;
   outputTokens: number;
   cachedTokens: number;
+  cacheCreationTokens: number;
 };
 
 export type TeamRow = { teamId: string | null; teamName: string; requests: number; costUsd: number };
@@ -56,7 +58,8 @@ export async function getByModel(days: number): Promise<ModelRow[]> {
            sum(cost_usd) AS cost_usd,
            sum(input_tokens) AS input_tokens,
            sum(output_tokens) AS output_tokens,
-           sum(cached_tokens) AS cached_tokens
+           sum(cached_tokens) AS cached_tokens,
+           sum(cache_creation_tokens) AS cache_creation_tokens
     FROM usage_events
     WHERE ${since(days)}
     GROUP BY provider, model
@@ -69,6 +72,7 @@ export async function getByModel(days: number): Promise<ModelRow[]> {
     inputTokens: n(r.input_tokens),
     outputTokens: n(r.output_tokens),
     cachedTokens: n(r.cached_tokens),
+    cacheCreationTokens: n(r.cache_creation_tokens),
   }));
 }
 
@@ -96,6 +100,7 @@ export async function getSummary(days: number): Promise<Summary> {
            sum(input_tokens) AS input_tokens,
            sum(output_tokens) AS output_tokens,
            sum(cached_tokens) AS cached_tokens,
+           sum(cache_creation_tokens) AS cache_creation_tokens,
            countIf(governance_flagged = 1) AS governance_flagged
     FROM usage_events
     WHERE ${since(days)}`);
@@ -107,6 +112,7 @@ export async function getSummary(days: number): Promise<Summary> {
     inputTokens: n(row?.input_tokens),
     outputTokens: n(row?.output_tokens),
     cachedTokens: n(row?.cached_tokens),
+    cacheCreationTokens: n(row?.cache_creation_tokens),
     cacheSavingsUsd: await cacheSavings(models),
     governanceFlagged: n(row?.governance_flagged),
   };
@@ -269,6 +275,7 @@ export type AuditRow = {
   inputTokens: number;
   outputTokens: number;
   cachedTokens: number;
+  cacheCreationTokens: number;
   costUsd: number;
   latencyMs: number;
   governanceFlagged: boolean;
@@ -284,7 +291,7 @@ export type AuditRow = {
 export async function getAuditEvents(days: number, limit = 5000): Promise<AuditRow[]> {
   const rows = await chQuery<Record<string, unknown>>(`
     SELECT ts, team_id, virtual_key_id, provider, model, request_type, status,
-           http_status, input_tokens, output_tokens, cached_tokens, cost_usd,
+           http_status, input_tokens, output_tokens, cached_tokens, cache_creation_tokens, cost_usd,
            latency_ms, governance_flagged, governance_categories
     FROM usage_events
     WHERE ${since(days)}
@@ -316,6 +323,7 @@ export async function getAuditEvents(days: number, limit = 5000): Promise<AuditR
       inputTokens: n(r.input_tokens),
       outputTokens: n(r.output_tokens),
       cachedTokens: n(r.cached_tokens),
+      cacheCreationTokens: n(r.cache_creation_tokens),
       costUsd: n(r.cost_usd),
       latencyMs: n(r.latency_ms),
       governanceFlagged: n(r.governance_flagged) === 1,

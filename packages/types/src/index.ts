@@ -36,6 +36,7 @@ export const UsageEvent = z.object({
   inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
   cachedTokens: z.number().int().nonnegative().default(0),
+  cacheCreationTokens: z.number().int().nonnegative().default(0),
   costUsd: z.number().nonnegative(),
   latencyMs: z.number().int().nonnegative(),
   ttftMs: z.number().int().nonnegative().nullable(),

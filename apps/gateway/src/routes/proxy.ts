@@ -72,6 +72,7 @@ function record(ctx: MeterCtx, u: { inputTokens: number; outputTokens: number; c
     inputTokens: u.inputTokens,
     outputTokens: u.outputTokens,
     cachedTokens: u.cacheReadTokens,
+    cacheCreationTokens: u.cacheCreationTokens,
     costUsd,
     latencyMs,
     ttftMs,

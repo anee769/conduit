@@ -40,6 +40,7 @@ function toRow(e: UsageEvent): Record<string, unknown> {
     input_tokens: e.inputTokens,
     output_tokens: e.outputTokens,
     cached_tokens: e.cachedTokens,
+    cache_creation_tokens: e.cacheCreationTokens,
     cost_usd: e.costUsd,
     latency_ms: e.latencyMs,
     ttft_ms: e.ttftMs,
