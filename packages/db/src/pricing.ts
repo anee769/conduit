@@ -26,7 +26,7 @@ export const DEFAULT_PRICING: PriceRow[] = [
   // Claude 4.x list prices (2026). Cache read = 0.1x input; cache write = 1.25x input.
   { provider: "anthropic", model: "claude-opus-4",   inputPerMtokUsd: 5,   outputPerMtokUsd: 25, cacheReadPerMtokUsd: 0.5,  cacheWritePerMtokUsd: 6.25 },
   { provider: "anthropic", model: "claude-sonnet-4", inputPerMtokUsd: 3,   outputPerMtokUsd: 15, cacheReadPerMtokUsd: 0.3,  cacheWritePerMtokUsd: 3.75 },
-  { provider: "anthropic", model: "claude-haiku-4",  inputPerMtokUsd: 0.8, outputPerMtokUsd: 4,  cacheReadPerMtokUsd: 0.08, cacheWritePerMtokUsd: 1 },
+  { provider: "anthropic", model: "claude-haiku-4",  inputPerMtokUsd: 1,   outputPerMtokUsd: 5,  cacheReadPerMtokUsd: 0.1,  cacheWritePerMtokUsd: 1.25 },
   // ── OpenAI ───────────────────────────────────────────────────────────────
   { provider: "openai", model: "gpt-4o",      inputPerMtokUsd: 2.5,  outputPerMtokUsd: 10,  cacheReadPerMtokUsd: 1.25, cacheWritePerMtokUsd: null },
   { provider: "openai", model: "gpt-4o-mini", inputPerMtokUsd: 0.15, outputPerMtokUsd: 0.6, cacheReadPerMtokUsd: 0.075, cacheWritePerMtokUsd: null },
