@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState, type ReactElement } from "react";
 import ThemeToggle from "./ThemeToggle";
 import type {
   Summary,
@@ -21,10 +21,52 @@ const usd = (v: number): string => {
   return "$" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 const num = (v: number): string => v.toLocaleString();
+/** Rounds before formatting — use as the animated `format` prop for integer counts. */
+const numInt = (v: number): string => Math.round(v).toLocaleString();
 
 const WINDOWS = [7, 30, 90];
-const TABS = ["Overview", "Spend", "Context", "Governance", "Budgets", "Activity"] as const;
+const TABS = ["Overview", "Spend", "Context", "Governance", "Budgets", "Activity", "Settings"] as const;
 type Tab = (typeof TABS)[number];
+
+const TAB_ICONS: Record<Tab, ReactElement> = {
+  Overview: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" />
+      <rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" />
+    </svg>
+  ),
+  Spend: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5.5A4 4 0 0 0 13 3H9a4 4 0 0 0 0 8h6a4 4 0 0 1 0 8h-4a4 4 0 0 1-4-2.5" />
+    </svg>
+  ),
+  Context: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12h4l3 8 4-16 3 8h4" />
+    </svg>
+  ),
+  Governance: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6z" />
+    </svg>
+  ),
+  Budgets: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="6" width="20" height="13" rx="2" /><path d="M2 10h20M7 15h3" />
+    </svg>
+  ),
+  Activity: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12h4l2-7 4 14 2-7h6" />
+    </svg>
+  ),
+  Settings: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  ),
+};
 
 export type DashboardData = {
   org: string;
@@ -46,68 +88,117 @@ export default function DashboardView(props: DashboardData) {
   const maxDayCost = Math.max(1e-9, ...timeseries.map((d) => d.costUsd));
 
   return (
-    <div className="app">
-      <header className="appbar">
-        <div className="brand">
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="sidebar-brand">
           <div className="logo" aria-hidden>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M5 5l6 7-6 7" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
               <path d="M12 5l6 7-6 7" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
           <div>
-            <div className="brand-name">Conduit</div>
-            <div className="brand-sub">{org} · control plane for AI coding agents — spend · governance · context</div>
+            <div className="sidebar-brand-name">Conduit</div>
+            <div className="sidebar-brand-sub">{org}</div>
           </div>
         </div>
-        <nav className="windows">
-          {WINDOWS.map((w) => (
-            <a key={w} href={`/?days=${w}`} className={w === days ? "win active" : "win"}>
-              {w}d
-            </a>
-          ))}
-          <a href="/security" className="win" title="Security posture">Security</a>
-          <ThemeToggle />
+
+        <nav className="sidebar-nav">
+          {TABS.map((t) => {
+            const badge =
+              t === "Governance" && summary.governanceFlagged > 0
+                ? summary.governanceFlagged
+                : t === "Budgets" && budgets.some((b) => b.pct >= 100)
+                  ? budgets.filter((b) => b.pct >= 100).length
+                  : null;
+            return (
+              <button
+                key={t}
+                className={t === tab ? "sidebar-link active" : "sidebar-link"}
+                onClick={() => setTab(t)}
+              >
+                {TAB_ICONS[t]}
+                {t}
+                {badge != null && <span className="sidebar-badge">{badge}</span>}
+              </button>
+            );
+          })}
         </nav>
-      </header>
 
-      <nav className="tabs">
-        {TABS.map((t) => {
-          const badge =
-            t === "Governance" && summary.governanceFlagged > 0
-              ? summary.governanceFlagged
-              : t === "Budgets" && budgets.some((b) => b.pct >= 100)
-                ? budgets.filter((b) => b.pct >= 100).length
-                : null;
-          return (
-            <button
-              key={t}
-              className={t === tab ? "tab active" : "tab"}
-              onClick={() => setTab(t)}
-            >
-              {t}
-              {badge != null && <span className="tab-badge">{badge}</span>}
-            </button>
-          );
-        })}
-      </nav>
+        <div className="sidebar-spacer" />
+        <div className="sidebar-sep" />
+        <div className="sidebar-foot">
+          <a href="/security" className="sidebar-link" title="Security posture">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 12l2 2 4-4" /><path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6z" />
+            </svg>
+            Security
+          </a>
+          <div style={{ padding: "0.3rem 0.65rem" }}>
+            <ThemeToggle />
+          </div>
+        </div>
+      </aside>
 
-      <main className="tabpanel">
-        {tab === "Overview" && (
-          <Overview summary={summary} timeseries={timeseries} maxDayCost={maxDayCost} days={days} />
-        )}
-        {tab === "Spend" && <Spend byModel={byModel} byTeam={byTeam} byKey={byKey} />}
-        {tab === "Context" && <ContextRotTab contextRot={contextRot} />}
-        {tab === "Governance" && <GovernanceTab governance={governance} requests={summary.requests} />}
-        {tab === "Budgets" && <Budgets budgets={budgets} />}
-        {tab === "Activity" && <Activity recent={recent} days={days} />}
-      </main>
+      <div className="shell-main">
+        <header className="topbar">
+          <div>
+            <h1>{tab}</h1>
+            <p className="muted">control plane for AI coding agents — spend · governance · context</p>
+          </div>
+          <div className="topbar-actions">
+            <span className="live-dot" title="Live data — auto-refreshes on navigation" />
+            <div className="window-switch">
+              {WINDOWS.map((w) => (
+                <a key={w} href={`/?days=${w}`} className={w === days ? "window-opt active" : "window-opt"}>
+                  {w}d
+                </a>
+              ))}
+            </div>
+          </div>
+        </header>
 
-      <footer className="muted foot">
-        Window: last {days} days · metadata only — no prompts or completions are stored.
-      </footer>
+        <main className="tabpanel">
+          {tab === "Overview" && (
+            <Overview summary={summary} timeseries={timeseries} maxDayCost={maxDayCost} days={days} />
+          )}
+          {tab === "Spend" && <Spend byModel={byModel} byTeam={byTeam} byKey={byKey} />}
+          {tab === "Context" && <ContextRotTab contextRot={contextRot} />}
+          {tab === "Governance" && <GovernanceTab governance={governance} requests={summary.requests} />}
+          {tab === "Budgets" && <Budgets budgets={budgets} />}
+          {tab === "Activity" && <Activity recent={recent} days={days} />}
+          {tab === "Settings" && <Settings />}
+        </main>
+
+        <footer className="muted foot">
+          Window: last {days} days · metadata only — no prompts or completions are stored.
+        </footer>
+      </div>
     </div>
   );
+}
+
+/** Animates a number from 0 to `target` over `ms`, easing out. Re-runs whenever `target` changes. */
+function useCountUp(target: number, ms = 700): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (typeof window === "undefined" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setN(target);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const from = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / ms);
+      const eased = 1 - Math.pow(1 - t, 3); // ease-out-cubic
+      setN(from + (target - from) * eased);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return n;
 }
 
 function Kpi({
@@ -116,17 +207,24 @@ function Kpi({
   sub,
   tone,
   spark,
+  raw,
+  format,
 }: {
   label: string;
   value: string;
   sub: string;
   tone?: "good" | "warn";
   spark?: number[];
+  /** When provided (with `format`), the value animates from 0 → raw on mount/update. */
+  raw?: number;
+  format?: (n: number) => string;
 }) {
+  const animated = useCountUp(raw ?? 0);
+  const display = raw != null && format ? format(animated) : value;
   return (
     <div className="card kpi">
       <span className="label">{label}</span>
-      <span className={tone ? `value ${tone}` : "value"}>{value}</span>
+      <span className={tone ? `value ${tone}` : "value"}>{display}</span>
       <span className="muted">{sub}</span>
       {spark && spark.length > 1 && <Sparkline points={spark} />}
     </div>
@@ -174,17 +272,28 @@ function Overview({
         <Kpi
           label="Total spend"
           value={usd(summary.costUsd)}
+          raw={summary.costUsd}
+          format={usd}
           sub={`${num(summary.requests)} req · ${usdShort(summary.costUsd / Math.max(1, timeseries.length))}/day`}
           spark={timeseries.map((d) => d.costUsd)}
         />
-        <Kpi label="Caching saved" value={usd(summary.cacheSavingsUsd)} sub={`${num(summary.cachedTokens)} cache reads`} tone="good" />
+        <Kpi
+          label="Caching saved"
+          value={usd(summary.cacheSavingsUsd)}
+          raw={summary.cacheSavingsUsd}
+          format={usd}
+          sub={`${num(summary.cachedTokens)} cache reads`}
+          tone="good"
+        />
         <Kpi
           label="Tokens"
           value={num(summary.inputTokens + summary.outputTokens + summary.cachedTokens + summary.cacheCreationTokens)}
+          raw={summary.inputTokens + summary.outputTokens + summary.cachedTokens + summary.cacheCreationTokens}
+          format={numInt}
           sub={`${num(summary.inputTokens)} in · ${num(summary.outputTokens)} out · ${num(summary.cachedTokens)} cache-read · ${num(summary.cacheCreationTokens)} cache-write`}
         />
-        <Kpi label="Blocked" value={num(summary.blocked)} sub="policy / budget rejects" tone={summary.blocked ? "warn" : undefined} />
-        <Kpi label="Governance flags" value={num(summary.governanceFlagged)} sub="requests with sensitive data" tone={summary.governanceFlagged ? "warn" : "good"} />
+        <Kpi label="Blocked" value={num(summary.blocked)} raw={summary.blocked} format={numInt} sub="policy / budget rejects" tone={summary.blocked ? "warn" : undefined} />
+        <Kpi label="Governance flags" value={num(summary.governanceFlagged)} raw={summary.governanceFlagged} format={numInt} sub="requests with sensitive data" tone={summary.governanceFlagged ? "warn" : "good"} />
       </section>
 
       <section className="card">
@@ -510,5 +619,234 @@ function Activity({ recent, days }: { recent: RecentRow[]; days: number }) {
         </tbody>
       </table>
     </section>
+  );
+}
+
+// ── Settings tab: org / credentials / teams / virtual keys / budgets ───────
+// Reuses the same admin API the /setup wizard uses. Auth is the dashboard
+// cookie (already present — you're logged in to see this page), so no admin
+// token entry is needed here.
+
+type SettingsCredential = { id: string; provider: string; displayName: string };
+type SettingsTeam = { id: string; name: string };
+type SettingsKey = { id: string; name: string; keyPrefix: string | null; teamId: string | null; status: string };
+type SettingsBudget = { id: string; name: string; teamId: string | null; periodType: string; limitUsd: number; action: string };
+
+async function jsonFetch(path: string, init?: RequestInit) {
+  const r = await fetch(path, { ...init, headers: { "content-type": "application/json", ...(init?.headers ?? {}) } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+  return j;
+}
+
+function Settings() {
+  const [org, setOrg] = useState<{ id: string; name: string } | null>(null);
+  const [credentials, setCredentials] = useState<SettingsCredential[]>([]);
+  const [teams, setTeams] = useState<SettingsTeam[]>([]);
+  const [keys, setKeys] = useState<SettingsKey[]>([]);
+  const [budgets, setBudgets] = useState<SettingsBudget[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+  const [createdKey, setCreatedKey] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const status = await jsonFetch("/api/admin/setup-status");
+      setOrg(status.org);
+      const [c, t, k, b] = await Promise.all([
+        jsonFetch("/api/admin/credentials").catch(() => ({ credentials: [] })),
+        jsonFetch("/api/admin/teams").catch(() => ({ teams: [] })),
+        jsonFetch("/api/admin/keys").catch(() => ({ keys: [] })),
+        jsonFetch("/api/admin/budgets").catch(() => ({ budgets: [] })),
+      ]);
+      setCredentials(c.credentials ?? []);
+      setTeams(t.teams ?? []);
+      setKeys(k.keys ?? []);
+      setBudgets(b.budgets ?? []);
+      setErr(null);
+    } catch (e) {
+      setErr(String(e));
+    }
+  }, []);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const [credForm, setCredForm] = useState({ provider: "anthropic", apiKey: "" });
+  const [teamForm, setTeamForm] = useState("");
+  const [keyForm, setKeyForm] = useState({ name: "", teamId: "" });
+  const [budgetForm, setBudgetForm] = useState({ name: "", teamId: "", periodType: "monthly", limitUsd: "", action: "block" });
+
+  async function addCredential() {
+    try {
+      await jsonFetch("/api/admin/credentials", { method: "POST", body: JSON.stringify({ provider: credForm.provider, apiKey: credForm.apiKey }) });
+      setCredForm({ ...credForm, apiKey: "" });
+      await refresh();
+    } catch (e) { setErr(String(e)); }
+  }
+  async function addTeam() {
+    try {
+      await jsonFetch("/api/admin/teams", { method: "POST", body: JSON.stringify({ name: teamForm }) });
+      setTeamForm("");
+      await refresh();
+    } catch (e) { setErr(String(e)); }
+  }
+  async function addKey() {
+    try {
+      const teamId = keyForm.teamId || teams[0]?.id;
+      const res = await jsonFetch("/api/admin/keys", { method: "POST", body: JSON.stringify({ name: keyForm.name, ...(teamId ? { teamId } : {}) }) });
+      setCreatedKey(res.virtualKey);
+      setKeyForm({ name: "", teamId: "" });
+      await refresh();
+    } catch (e) { setErr(String(e)); }
+  }
+  async function revokeKey(id: string) {
+    try {
+      await jsonFetch(`/api/admin/keys/${id}`, { method: "DELETE" });
+      await refresh();
+    } catch (e) { setErr(String(e)); }
+  }
+  async function addBudget() {
+    try {
+      await jsonFetch("/api/admin/budgets", {
+        method: "POST",
+        body: JSON.stringify({
+          name: budgetForm.name,
+          teamId: budgetForm.teamId || undefined,
+          periodType: budgetForm.periodType,
+          limitUsd: Number(budgetForm.limitUsd),
+          action: budgetForm.action,
+        }),
+      });
+      setBudgetForm({ name: "", teamId: "", periodType: "monthly", limitUsd: "", action: "block" });
+      await refresh();
+    } catch (e) { setErr(String(e)); }
+  }
+
+  return (
+    <>
+      {err && <div className="card error">{err}</div>}
+
+      <section className="card">
+        <h2>Organization</h2>
+        {org ? (
+          <p>
+            <b>{org.name}</b> <span className="muted mono">· {org.id}</span>
+          </p>
+        ) : (
+          <p className="muted">No organization yet — create one to get started.</p>
+        )}
+      </section>
+
+      <section className="card">
+        <h2>Provider credentials <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem", textTransform: "none" }}>· {credentials.length}</span></h2>
+        {credentials.length > 0 && (
+          <ul className="steps" style={{ marginBottom: ".9rem" }}>
+            {credentials.map((c) => (
+              <li key={c.id}><span className="tick on">✓</span> {c.displayName} <span className="muted">· {c.provider}</span></li>
+            ))}
+          </ul>
+        )}
+        <div className="row">
+          <select className="in" value={credForm.provider} onChange={(e) => setCredForm({ ...credForm, provider: e.target.value })}>
+            <option value="anthropic">anthropic</option>
+            <option value="openai">openai</option>
+            <option value="azure">azure</option>
+          </select>
+          <input className="in" placeholder="provider API key (encrypted at rest)" type="password" value={credForm.apiKey} onChange={(e) => setCredForm({ ...credForm, apiKey: e.target.value })} />
+          <button className="btn" onClick={() => void addCredential()} disabled={!credForm.apiKey}>Add credential</button>
+        </div>
+      </section>
+
+      <div className="cols">
+        <section className="card">
+          <h2>Teams <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem", textTransform: "none" }}>· {teams.length}</span></h2>
+          {teams.length > 0 && (
+            <ul className="steps" style={{ marginBottom: ".9rem" }}>
+              {teams.map((t) => <li key={t.id}><span className="tick on">✓</span> {t.name}</li>)}
+            </ul>
+          )}
+          <div className="row">
+            <input className="in" placeholder="Team name" value={teamForm} onChange={(e) => setTeamForm(e.target.value)} />
+            <button className="btn" onClick={() => void addTeam()} disabled={!teamForm}>Add team</button>
+          </div>
+        </section>
+
+        <section className="card">
+          <h2>Budgets <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem", textTransform: "none" }}>· {budgets.length}</span></h2>
+          {budgets.length > 0 && (
+            <ul className="steps" style={{ marginBottom: ".9rem" }}>
+              {budgets.map((b) => {
+                const team = teams.find((t) => t.id === b.teamId);
+                return (
+                  <li key={b.id}>
+                    <span className="tick on">✓</span> {b.name} <span className="muted">· {usd(b.limitUsd)}/{b.periodType} · {team ? team.name : "org-wide"} · {b.action}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="row">
+            <input className="in" placeholder="Budget name" value={budgetForm.name} onChange={(e) => setBudgetForm({ ...budgetForm, name: e.target.value })} />
+            <input className="in" placeholder="Limit USD" type="number" min="0" value={budgetForm.limitUsd} onChange={(e) => setBudgetForm({ ...budgetForm, limitUsd: e.target.value })} />
+          </div>
+          <div className="row" style={{ marginTop: ".5rem" }}>
+            <select className="in" value={budgetForm.teamId} onChange={(e) => setBudgetForm({ ...budgetForm, teamId: e.target.value })}>
+              <option value="">Org-wide</option>
+              {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            <select className="in" value={budgetForm.periodType} onChange={(e) => setBudgetForm({ ...budgetForm, periodType: e.target.value })}>
+              <option value="monthly">Monthly</option>
+              <option value="daily">Daily</option>
+            </select>
+            <select className="in" value={budgetForm.action} onChange={(e) => setBudgetForm({ ...budgetForm, action: e.target.value })}>
+              <option value="block">Block over limit</option>
+              <option value="alert">Alert only</option>
+            </select>
+            <button className="btn" onClick={() => void addBudget()} disabled={!budgetForm.name || !budgetForm.limitUsd}>Add budget</button>
+          </div>
+        </section>
+      </div>
+
+      <section className="card">
+        <h2>Virtual keys <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem", textTransform: "none" }}>· {keys.filter((k) => k.status === "active").length} active</span></h2>
+        {keys.length > 0 && (
+          <table style={{ marginBottom: "1rem" }}>
+            <thead><tr><th>Key</th><th>Prefix</th><th>Team</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              {keys.map((k) => {
+                const team = teams.find((t) => t.id === k.teamId);
+                const active = k.status === "active";
+                return (
+                  <tr key={k.id}>
+                    <td>{k.name}</td>
+                    <td className="mono">{k.keyPrefix ?? "—"}</td>
+                    <td>{team ? team.name : "Unassigned"}</td>
+                    <td>{active ? <span className="pill pill-success">active</span> : <span className="pill pill-error">revoked</span>}</td>
+                    <td>
+                      {active && (
+                        <button className="btn-sm" onClick={() => void revokeKey(k.id)}>Revoke</button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        <div className="row">
+          <input className="in" placeholder="Key name (e.g. priya — claude-code)" value={keyForm.name} onChange={(e) => setKeyForm({ ...keyForm, name: e.target.value })} />
+          <select className="in" value={keyForm.teamId} onChange={(e) => setKeyForm({ ...keyForm, teamId: e.target.value })}>
+            <option value="">{teams[0] ? `Team: ${teams[0].name} (default)` : "No team"}</option>
+            {teams.map((t) => <option key={t.id} value={t.id}>Team: {t.name}</option>)}
+          </select>
+          <button className="btn" onClick={() => void addKey()} disabled={!keyForm.name}>Generate key</button>
+        </div>
+        {createdKey && (
+          <div className="snippet" style={{ marginTop: "1rem" }}>
+            <b>Copy this now — it&apos;s shown once:</b>
+            <pre style={{ margin: "0.5rem 0 0" }}>{createdKey}</pre>
+          </div>
+        )}
+      </section>
+    </>
   );
 }

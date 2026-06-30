@@ -13,26 +13,24 @@ const STATUS_COPY: Record<"enforced" | "partial" | "off", { label: string; tone:
 export default function Security() {
   const p = computePosture();
   return (
-    <div className="app">
-      <header className="appbar">
-        <div className="brand">
+    <div className="standalone-page">
+      <header className="standalone-bar">
+        <div className="standalone-brand">
           <div className="logo" aria-hidden>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M5 5l6 7-6 7" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.5" />
               <path d="M12 5l6 7-6 7" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
           <div>
-            <div className="brand-name">Conduit</div>
-            <div className="brand-sub">Security posture · honest disclosure</div>
+            <div className="standalone-brand-name">Conduit</div>
+            <div className="standalone-brand-sub">Security posture · honest disclosure</div>
           </div>
         </div>
-        <nav className="windows">
-          <Link href="/" className="win">← Dashboard</Link>
-        </nav>
+        <Link href="/" className="standalone-back">← Dashboard</Link>
       </header>
 
-      <main className="tabpanel">
+      <main className="standalone-main tabpanel">
         <section className="card">
           <h2>What this dashboard enforces today</h2>
           <table className="posture">

@@ -2,32 +2,35 @@
 
 import { useEffect, useState } from "react";
 
-type Theme = "light" | "dark" | "auto";
+type Theme = "light" | "dark";
 const STORAGE_KEY = "conduit-theme";
 
 function applyTheme(t: Theme) {
-  const root = document.documentElement;
-  if (t === "auto") root.removeAttribute("data-theme");
-  else root.setAttribute("data-theme", t);
+  document.documentElement.setAttribute("data-theme", t);
+}
+
+function systemPrefersDark(): boolean {
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
 }
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("auto");
+  const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
-    const saved = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "auto";
-    setTheme(saved);
+    const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    const resolved = saved ?? (systemPrefersDark() ? "dark" : "light");
+    setTheme(resolved);
   }, []);
 
-  function cycle() {
-    const order: Theme[] = ["auto", "light", "dark"];
-    const next = order[(order.indexOf(theme) + 1) % order.length]!;
+  // Single click, always one visible flip: light <-> dark, no intermediate "auto" state.
+  function toggle() {
+    const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
     localStorage.setItem(STORAGE_KEY, next);
     applyTheme(next);
   }
 
-  const label = `Theme: ${theme}. Click to cycle.`;
+  const label = `Switch to ${theme === "dark" ? "light" : "dark"} mode`;
 
   return (
     <button
@@ -35,7 +38,7 @@ export default function ThemeToggle() {
       className="theme-toggle"
       aria-label={label}
       title={label}
-      onClick={cycle}
+      onClick={toggle}
     >
       <svg className="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="4" />
