@@ -180,8 +180,8 @@ function Overview({
         <Kpi label="Caching saved" value={usd(summary.cacheSavingsUsd)} sub={`${num(summary.cachedTokens)} cache reads`} tone="good" />
         <Kpi
           label="Tokens"
-          value={num(summary.inputTokens + summary.outputTokens + summary.cacheCreationTokens)}
-          sub={`${num(summary.inputTokens)} in · ${num(summary.outputTokens)} out · ${num(summary.cacheCreationTokens)} cache-write`}
+          value={num(summary.inputTokens + summary.outputTokens + summary.cachedTokens + summary.cacheCreationTokens)}
+          sub={`${num(summary.inputTokens)} in · ${num(summary.outputTokens)} out · ${num(summary.cachedTokens)} cache-read · ${num(summary.cacheCreationTokens)} cache-write`}
         />
         <Kpi label="Blocked" value={num(summary.blocked)} sub="policy / budget rejects" tone={summary.blocked ? "warn" : undefined} />
         <Kpi label="Governance flags" value={num(summary.governanceFlagged)} sub="requests with sensitive data" tone={summary.governanceFlagged ? "warn" : "good"} />
@@ -502,7 +502,7 @@ function Activity({ recent, days }: { recent: RecentRow[]; days: number }) {
               <td>{r.teamName}</td>
               <td>{r.model}</td>
               <td><span className={`pill pill-${r.status}`}>{r.status}</span></td>
-              <td className="r">{num(r.inputTokens + r.outputTokens + r.cacheCreationTokens)}</td>
+              <td className="r">{num(r.inputTokens + r.outputTokens + r.cachedTokens + r.cacheCreationTokens)}</td>
               <td className="r">{usd(r.costUsd)}</td>
             </tr>
           ))}
