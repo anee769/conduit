@@ -48,6 +48,8 @@ export type RecentRow = {
   costUsd: number;
   inputTokens: number;
   outputTokens: number;
+  cachedTokens: number;
+  cacheCreationTokens: number;
   teamName: string;
 };
 
@@ -421,7 +423,8 @@ export async function getTimeseries(days: number): Promise<DayRow[]> {
 
 export async function getRecent(limit = 25): Promise<RecentRow[]> {
   const rows = await chQuery<Record<string, unknown>>(`
-    SELECT ts, provider, model, status, http_status, cost_usd, input_tokens, output_tokens, team_id
+    SELECT ts, provider, model, status, http_status, cost_usd, input_tokens, output_tokens,
+           cached_tokens, cache_creation_tokens, team_id
     FROM usage_events
     ORDER BY ts DESC
     LIMIT ${Math.max(1, Math.floor(limit))}`);
@@ -438,6 +441,8 @@ export async function getRecent(limit = 25): Promise<RecentRow[]> {
       costUsd: n(r.cost_usd),
       inputTokens: n(r.input_tokens),
       outputTokens: n(r.output_tokens),
+      cachedTokens: n(r.cached_tokens),
+      cacheCreationTokens: n(r.cache_creation_tokens),
       teamName: teamId ? (names.get(teamId) ?? "—") : "Unassigned",
     };
   });

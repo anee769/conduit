@@ -177,8 +177,12 @@ function Overview({
           sub={`${num(summary.requests)} req · ${usdShort(summary.costUsd / Math.max(1, timeseries.length))}/day`}
           spark={timeseries.map((d) => d.costUsd)}
         />
-        <Kpi label="Caching saved" value={usd(summary.cacheSavingsUsd)} sub={`${num(summary.cachedTokens)} cached tokens`} tone="good" />
-        <Kpi label="Tokens" value={num(summary.inputTokens + summary.outputTokens)} sub={`${num(summary.inputTokens)} in · ${num(summary.outputTokens)} out`} />
+        <Kpi label="Caching saved" value={usd(summary.cacheSavingsUsd)} sub={`${num(summary.cachedTokens)} cache reads`} tone="good" />
+        <Kpi
+          label="Tokens"
+          value={num(summary.inputTokens + summary.outputTokens + summary.cachedTokens + summary.cacheCreationTokens)}
+          sub={`${num(summary.inputTokens)} in · ${num(summary.outputTokens)} out · ${num(summary.cachedTokens + summary.cacheCreationTokens)} cached`}
+        />
         <Kpi label="Blocked" value={num(summary.blocked)} sub="policy / budget rejects" tone={summary.blocked ? "warn" : undefined} />
         <Kpi label="Governance flags" value={num(summary.governanceFlagged)} sub="requests with sensitive data" tone={summary.governanceFlagged ? "warn" : "good"} />
       </section>
@@ -498,7 +502,7 @@ function Activity({ recent, days }: { recent: RecentRow[]; days: number }) {
               <td>{r.teamName}</td>
               <td>{r.model}</td>
               <td><span className={`pill pill-${r.status}`}>{r.status}</span></td>
-              <td className="r">{num(r.inputTokens + r.outputTokens)}</td>
+              <td className="r">{num(r.inputTokens + r.outputTokens + r.cachedTokens + r.cacheCreationTokens)}</td>
               <td className="r">{usd(r.costUsd)}</td>
             </tr>
           ))}
