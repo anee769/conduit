@@ -109,6 +109,7 @@ services:
       MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY:-change-me-generate-a-32-byte-key}
       # Mirror the gateway's governance policy so the dashboard can show which
       # categories are blocking vs only alerting.
+      REDIS_URL: redis://redis:6379
       GOVERNANCE_MODE: ${GOVERNANCE_MODE:-alert}
       GOVERNANCE_BLOCK_CATEGORIES: ${GOVERNANCE_BLOCK_CATEGORIES:-}
       GOVERNANCE_ENTITIES: ${GOVERNANCE_ENTITIES:-}
@@ -117,6 +118,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       clickhouse: { condition: service_healthy }
+      redis: { condition: service_healthy }
 
 volumes:
   pgdata:
