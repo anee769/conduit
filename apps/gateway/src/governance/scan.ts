@@ -47,9 +47,11 @@ const RULES: Rule[] = [
   { ruleId: "slack_token", category: "slack_token", re: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/ },
   { ruleId: "stripe_secret_key", category: "stripe_key", re: /\b(?:sk|rk)_live_[0-9a-zA-Z]{24,}\b/ },
   { ruleId: "jwt", category: "jwt", re: /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/ },
-  // Generic sensitive-keyword assignment. Catches both quoted (`secret = "foo"`)
-  // and unquoted/space-separated (`secret wJalrX...`) forms.
-  { ruleId: "generic_assigned_secret", category: "generic_secret", re: /(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token)["']?\s*[:=\s]\s*["']?[^\s"']{8,}["']?/i },
+  // Generic "secret = 'value'" or secret: "value" assignment. Requires the
+  // explicit = or : separator to keep false-positive rate near zero.
+  // Plain `secret WORD` without punctuation is intentionally NOT caught here —
+  // space-separated is too broad and fires on normal English prose.
+  { ruleId: "generic_assigned_secret", category: "generic_secret", re: /(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token)["']?\s*[:=]\s*["'][^"'\s]{8,}["']/i },
 ];
 
 /**
