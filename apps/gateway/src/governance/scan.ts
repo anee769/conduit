@@ -38,7 +38,11 @@ const RULES: Rule[] = [
   // AWS secret access key: 40-char base64-ish string preceded by an AWS-context keyword.
   // Anchoring to the keyword keeps false-positive rate near zero.
   { ruleId: "aws_secret_access_key", category: "aws_credentials", re: /(?:aws_secret(?:_access)?_key|secret[_\-]?access[_\-]?key|SecretAccessKey)["']?\s*[:=\s]\s*["']?[A-Za-z0-9+/]{40}["']?/i },
-  { ruleId: "private_key_block", category: "private_key", re: /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----/ },
+  // Require both the BEGIN header AND the END footer with key material in between.
+  // Matching the header alone fires on test fixtures, README examples, and the
+  // scanner's own pattern definition — all of which appear in coding-agent context.
+  // A real key always has all three parts.
+  { ruleId: "private_key_block", category: "private_key", re: /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----[\s\S]{64,}-----END (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----/ },
   { ruleId: "github_token", category: "github_token", re: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36}\b/ },
   { ruleId: "github_pat_fine", category: "github_token", re: /\bgithub_pat_[A-Za-z0-9_]{60,}\b/ },
   { ruleId: "anthropic_api_key", category: "provider_api_key", re: /\bsk-ant-[A-Za-z0-9_-]{20,}\b/ },

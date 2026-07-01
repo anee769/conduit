@@ -13,9 +13,17 @@ test("detects an AWS access key id", () => {
   assert.equal(hits[0]?.category, "aws_credentials");
 });
 
-test("detects a private key block", () => {
-  const hits = scanSecrets("-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...");
-  assert.ok(hits.some((h) => h.category === "private_key"));
+test("detects a private key block (full BEGIN+body+END required)", () => {
+  // Full PEM block with header, base64 body, and footer → fires.
+  const fullKey =
+    "-----BEGIN RSA PRIVATE KEY-----\n" +
+    "MIIEpAIBAAKCAQEA3wIBAAKCAQEA3Qn+8Jd7Xk2mVqRtLpNOuYsHfGcBvZiWxK\n".repeat(4) +
+    "-----END RSA PRIVATE KEY-----";
+  assert.ok(scanSecrets(fullKey).some((h) => h.category === "private_key"));
+
+  // Header alone (test fixture / README example / pattern definition) → no hit.
+  assert.deepEqual(scanSecrets("-----BEGIN RSA PRIVATE KEY-----"), []);
+  assert.deepEqual(scanSecrets("the pattern is /-----BEGIN RSA PRIVATE KEY-----/"), []);
 });
 
 test("detects provider api keys (anthropic + openai shapes)", () => {
