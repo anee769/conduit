@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { listBudgets, createBudget } from "@finops/db";
 import { requireAdmin } from "../../../../lib/admin-auth";
 import { resolveOrgId } from "../../../../lib/resolve-org";
+import { reloadGateway } from "../../../../lib/gateway-reload";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
       limitUsd,
       action,
     });
+    void reloadGateway();
     return NextResponse.json({ id, orgId, limitUsd, periodType: period, action }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 400 });

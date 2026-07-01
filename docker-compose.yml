@@ -110,6 +110,7 @@ services:
       # Mirror the gateway's governance policy so the dashboard can show which
       # categories are blocking vs only alerting.
       REDIS_URL: redis://redis:6379
+      GATEWAY_INTERNAL_URL: http://gateway:4000
       GOVERNANCE_MODE: ${GOVERNANCE_MODE:-alert}
       GOVERNANCE_BLOCK_CATEGORIES: ${GOVERNANCE_BLOCK_CATEGORIES:-}
       GOVERNANCE_ENTITIES: ${GOVERNANCE_ENTITIES:-}
