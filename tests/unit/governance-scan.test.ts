@@ -118,3 +118,54 @@ test("scanSecrets + scanEntities combine into a single category set", () => {
   assert.ok(cats.includes("aws_credentials"));
   assert.ok(cats.includes("org_entity"));
 });
+
+// ── extractLastUserText (session-history isolation) ───────────────────────────
+// Import the helper directly to test it without spinning up the full gateway.
+import { extractLastUserText } from "../../apps/gateway/src/routes/proxy";
+
+test("extractLastUserText: picks last user message string", () => {
+  const body = JSON.stringify({
+    model: "claude-haiku-4-5",
+    messages: [
+      { role: "user", content: "deploy with AKIAIOSFODNN7EXAMPLE" },
+      { role: "assistant", content: "blocked" },
+      { role: "user", content: "hey" },
+    ],
+  });
+  assert.equal(extractLastUserText(body), "hey");
+});
+
+test("extractLastUserText: handles content-block arrays", () => {
+  const body = JSON.stringify({
+    messages: [{ role: "user", content: [{ type: "text", text: "hello world" }] }],
+  });
+  assert.equal(extractLastUserText(body), "hello world");
+});
+
+test("extractLastUserText: returns null for non-JSON", () => {
+  assert.equal(extractLastUserText("not json"), null);
+});
+
+test("session-history isolation: credential in history, clean new message → no hits", () => {
+  const body = JSON.stringify({
+    messages: [
+      { role: "user", content: "deploy with AKIAIOSFODNN7EXAMPLE" },
+      { role: "assistant", content: "blocked" },
+      { role: "user", content: "hey" },
+    ],
+  });
+  const scanTarget = extractLastUserText(body) ?? body;
+  assert.deepEqual(categoriesOf(scanSecrets(scanTarget)), [], "should not re-fire on history");
+});
+
+test("session-history isolation: credential in new message → fires", () => {
+  const body = JSON.stringify({
+    messages: [
+      { role: "user", content: "hey" },
+      { role: "assistant", content: "hi" },
+      { role: "user", content: "deploy with AKIAIOSFODNN7EXAMPLE" },
+    ],
+  });
+  const scanTarget = extractLastUserText(body) ?? body;
+  assert.ok(categoriesOf(scanSecrets(scanTarget)).includes("aws_credentials"), "should detect new credential");
+});

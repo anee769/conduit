@@ -165,6 +165,35 @@ const HOP_BY_HOP = new Set([
   "trailer",
 ]);
 
+/**
+ * Extract only the newest user-supplied text from a JSON request body.
+ * Scans the last message with role "user"; handles both string content and
+ * Anthropic-style content block arrays. Falls back to null (caller uses
+ * the full body) if the body isn't parseable or has no user messages.
+ */
+export function extractLastUserText(decoded: string): string | null {
+  try {
+    const body = JSON.parse(decoded) as Record<string, unknown>;
+    const messages = body.messages;
+    if (!Array.isArray(messages)) return null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i] as { role?: string; content?: unknown };
+      if (msg.role !== "user") continue;
+      if (typeof msg.content === "string") return msg.content;
+      if (Array.isArray(msg.content)) {
+        return msg.content
+          .filter((b: { type?: string; text?: string }) => b.type === "text" && typeof b.text === "string")
+          .map((b: { text?: string }) => b.text as string)
+          .join("\n");
+      }
+      return null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function extractToken(c: Context): string | null {
   const auth = c.req.header("authorization");
   if (auth?.startsWith("Bearer ")) return auth.slice(7).trim();
@@ -300,11 +329,17 @@ async function forward(c: Context, provider: UpstreamProvider) {
   // cheaper policy checks (don't pay the scan on a request we'd reject anyway)
   // and before the cache (a flagged/blocked request must not be cached/served).
   // PRIVACY: only categories are recorded — never the matched value.
+  //
+  // We scan only the NEW user content (last user turn), not the full messages
+  // history. Credentials in history were already evaluated when first sent;
+  // re-scanning history would permanently poison a session after a single flag
+  // and block every subsequent "hey" in the same conversation.
   let govCategories: string[] = [];
   const gov = governanceConfig();
   if (gov.enabled && rawBody.byteLength > 0) {
     const decoded = new TextDecoder().decode(rawBody);
-    const hits = [...scanSecrets(decoded), ...scanEntities(decoded, gov.entities)];
+    const scanTarget = extractLastUserText(decoded) ?? decoded;
+    const hits = [...scanSecrets(scanTarget), ...scanEntities(scanTarget, gov.entities)];
     if (hits.length > 0) {
       govCategories = categoriesOf(hits);
       // Per-request action: block if the global mode is block OR any hit category
