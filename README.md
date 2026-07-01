@@ -24,6 +24,30 @@ Conduit sits between your AI coding agents (Claude Code, Cursor, Codex, Aider) a
 
 ---
 
+## Screenshots
+
+**Overview** — spend, cache savings, tokens, blocked requests, and governance flags at a glance.
+
+![Overview](docs/screenshots/Overview.png)
+
+**Hard budget enforcement** — over the limit returns a 402 at the gateway, before the request reaches the provider.
+
+![Budget limit exceeded](docs/screenshots/BudgetLimitExceed.png)
+
+**Egress governance** — a request carrying an AWS key is blocked with a 451; only the category is recorded, never the value.
+
+![Governance block](docs/screenshots/GovernanceBlock.png)
+
+**Activity** — every request with a distinct status: success · cache hit · rate limited · model blocked · budget exceeded · governance blocked.
+
+![Activity](docs/screenshots/Activity.png)
+
+**Settings** — full CRUD for org, provider credentials, teams, budgets, and virtual keys.
+
+![Settings](docs/screenshots/Settings.png)
+
+---
+
 ## Why
 
 Bedrock / Vertex / Azure private endpoints + no-train BAAs solve the *channel to the vendor*. They don't tell finance who spent the $40k, don't catch secrets at egress, don't give auditors a record, and don't show where context rot is burning your token budget. That's the gap Conduit fills — without ever seeing your prompts.
