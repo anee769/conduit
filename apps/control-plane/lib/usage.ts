@@ -477,18 +477,14 @@ export async function getBudgetStatus(): Promise<BudgetStatus[]> {
   ]);
   const names = new Map(teamRows.map((t) => [t.id, t.name]));
 
-  const out: BudgetStatus[] = [];
-  for (const b of defs) {
-    const spentUsd = await readSpend(b.orgId, b.teamId ?? null, b.periodType);
-    out.push({
-      name: b.name,
-      scope: b.teamId ? (names.get(b.teamId) ?? "Team") : "Org-wide",
-      periodType: b.periodType,
-      action: b.action,
-      limitUsd: b.limitUsd,
-      spentUsd,
-      pct: b.limitUsd > 0 ? Math.min(999, (spentUsd / b.limitUsd) * 100) : 0,
-    });
-  }
-  return out;
+  const spends = await Promise.all(defs.map((b) => readSpend(b.orgId, b.teamId ?? null, b.periodType)));
+  return defs.map((b, i) => ({
+    name: b.name,
+    scope: b.teamId ? (names.get(b.teamId) ?? "Team") : "Org-wide",
+    periodType: b.periodType,
+    action: b.action,
+    limitUsd: b.limitUsd,
+    spentUsd: spends[i]!,
+    pct: b.limitUsd > 0 ? Math.min(999, (spends[i]! / b.limitUsd) * 100) : 0,
+  }));
 }

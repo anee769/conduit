@@ -556,7 +556,23 @@ function GovernanceTab({ governance, requests }: { governance: Governance; reque
   );
 }
 
-function Budgets({ budgets }: { budgets: BudgetStatus[] }) {
+function Budgets({ budgets: initial }: { budgets: BudgetStatus[] }) {
+  const [budgets, setBudgets] = useState<BudgetStatus[]>(initial);
+
+  useEffect(() => {
+    let alive = true;
+    async function refresh() {
+      try {
+        const r = await fetch("/api/admin/budgets/status");
+        if (!r.ok || !alive) return;
+        const j = await r.json();
+        if (Array.isArray(j.budgets)) setBudgets(j.budgets);
+      } catch { /* silent — stale data beats a crash */ }
+    }
+    const t = setInterval(() => void refresh(), 30_000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+
   return (
     <section className="card">
       <h2>Budgets</h2>
