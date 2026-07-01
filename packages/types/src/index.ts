@@ -14,7 +14,7 @@ export type Provider = z.infer<typeof Provider>;
 export const RequestType = z.enum(["chat", "completion", "embedding"]);
 export type RequestType = z.infer<typeof RequestType>;
 
-export const UsageStatus = z.enum(["success", "error", "blocked", "cache_hit"]);
+export const UsageStatus = z.enum(["success", "error", "blocked", "cache_hit", "rate_limited", "model_blocked", "budget_exceeded", "governance_blocked"]);
 export type UsageStatus = z.infer<typeof UsageStatus>;
 
 export const FailMode = z.enum(["open", "closed"]);

@@ -585,40 +585,75 @@ function Budgets({ budgets }: { budgets: BudgetStatus[] }) {
   );
 }
 
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+  success:            { label: "success",            cls: "success" },
+  cache_hit:          { label: "cache hit",          cls: "cache_hit" },
+  rate_limited:       { label: "rate limited",       cls: "rate_limited" },
+  model_blocked:      { label: "model blocked",      cls: "model_blocked" },
+  budget_exceeded:    { label: "budget exceeded",    cls: "budget_exceeded" },
+  governance_blocked: { label: "governance blocked", cls: "governance_blocked" },
+  blocked:            { label: "blocked",            cls: "blocked" },
+};
+
+function statusPill(status: string) {
+  const m = STATUS_META[status] ?? { label: status, cls: "blocked" };
+  return <span className={`pill pill-${m.cls}`}>{m.label}</span>;
+}
+
 function Activity({ recent, days }: { recent: RecentRow[]; days: number }) {
   return (
-    <section className="card">
-      <div className="card-head">
-        <h2>Recent requests</h2>
-        <div className="actions">
-          <a className="btn-sm" href={`/api/audit?days=${days}&format=csv`}>Export CSV</a>
-          <a className="btn-sm" href={`/api/audit?days=${days}&format=json`}>Export JSON</a>
+    <>
+      <section className="card">
+        <div className="card-head">
+          <h2>Recent requests</h2>
+          <div className="actions">
+            <a className="btn-sm" href={`/api/audit?days=${days}&format=csv`}>Export CSV</a>
+            <a className="btn-sm" href={`/api/audit?days=${days}&format=json`}>Export JSON</a>
+          </div>
         </div>
-      </div>
-      <p className="muted" style={{ marginTop: -4 }}>
-        Auditor-ready export of every request in this window — metadata only
-        (who / when / model / status / tokens / cost / governance), never prompts
-        or completions.
-      </p>
-      <table>
-        <thead>
-          <tr><th>Time (UTC)</th><th>Team</th><th>Model</th><th>Status</th><th className="r">Tokens</th><th className="r">Cost</th></tr>
-        </thead>
-        <tbody>
-          {recent.map((r, i) => (
-            <tr key={i}>
-              <td className="mono">{r.ts.replace("T", " ").slice(0, 19)}</td>
-              <td>{r.teamName}</td>
-              <td>{r.model}</td>
-              <td><span className={`pill pill-${r.status}`}>{r.status}</span></td>
-              <td className="r">{num(r.inputTokens + r.outputTokens + r.cachedTokens + r.cacheCreationTokens)}</td>
-              <td className="r">{usd(r.costUsd)}</td>
-            </tr>
-          ))}
-          {recent.length === 0 && <tr><td colSpan={6} className="muted">No requests yet.</td></tr>}
-        </tbody>
-      </table>
-    </section>
+        <table>
+          <thead>
+            <tr><th>Time (UTC)</th><th>Team</th><th>Model</th><th>Status</th><th className="r">Tokens</th><th className="r">Cost</th></tr>
+          </thead>
+          <tbody>
+            {recent.map((r, i) => (
+              <tr key={i}>
+                <td className="mono">{r.ts.replace("T", " ").slice(0, 19)}</td>
+                <td>{r.teamName}</td>
+                <td>{r.model}</td>
+                <td>{statusPill(r.status)}</td>
+                <td className="r">{num(r.inputTokens + r.outputTokens + r.cachedTokens + r.cacheCreationTokens)}</td>
+                <td className="r">{usd(r.costUsd)}</td>
+              </tr>
+            ))}
+            {recent.length === 0 && <tr><td colSpan={6} className="muted">No requests yet.</td></tr>}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="card" style={{ marginTop: "1.25rem" }}>
+        <div className="card-head">
+          <h2>Audit log</h2>
+          <div className="actions">
+            <a className="btn-sm" href={`/api/audit?days=${days}&format=csv`}>Export CSV</a>
+            <a className="btn-sm" href={`/api/audit?days=${days}&format=json`}>Export JSON</a>
+          </div>
+        </div>
+        <p className="muted" style={{ marginTop: -4, marginBottom: "0.75rem" }}>
+          Immutable, append-only record of every request — metadata only (who, when, model, status, tokens, cost, governance categories). Prompts and completions are <b>never stored</b>. Use for compliance reviews, security incidents, or cost chargebacks.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            {[7, 14, 30, 90].map((d) => (
+              <a key={d} className="btn-sm" href={`/api/audit?days=${d}&format=csv`}>Last {d}d CSV</a>
+            ))}
+          </div>
+          <p className="muted" style={{ fontSize: "0.78rem", margin: 0 }}>
+            Fields: <span className="mono">ts · org_id · team_id · vk_id · model · provider · status · http_status · input_tokens · output_tokens · cache_read_tokens · cache_creation_tokens · cost_usd · governance_categories · request_id · duration_ms</span>
+          </p>
+        </div>
+      </section>
+    </>
   );
 }
 

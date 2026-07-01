@@ -233,7 +233,7 @@ async function forward(c: Context, provider: UpstreamProvider) {
       {
         provider, model, requestType,
         orgId: vk.orgId, teamId: vk.teamId, vkId: vk.id,
-        start, httpStatus: 429, status: "blocked", requestId: null,
+        start, httpStatus: 429, status: "rate_limited", requestId: null,
       },
       { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
       Date.now() - start,
@@ -253,7 +253,7 @@ async function forward(c: Context, provider: UpstreamProvider) {
       {
         provider, model, requestType,
         orgId: vk.orgId, teamId: vk.teamId, vkId: vk.id,
-        start, httpStatus: 403, status: "blocked", requestId: null,
+        start, httpStatus: 403, status: "model_blocked", requestId: null,
       },
       { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
       Date.now() - start,
@@ -277,7 +277,7 @@ async function forward(c: Context, provider: UpstreamProvider) {
       {
         provider, model, requestType,
         orgId: vk.orgId, teamId: vk.teamId, vkId: vk.id,
-        start, httpStatus: 402, status: "blocked", requestId: null,
+        start, httpStatus: 402, status: "budget_exceeded", requestId: null,
       },
       { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
       Date.now() - start,
@@ -323,7 +323,7 @@ async function forward(c: Context, provider: UpstreamProvider) {
           {
             provider, model, requestType,
             orgId: vk.orgId, teamId: vk.teamId, vkId: vk.id,
-            start, httpStatus: 451, status: "blocked", requestId: null,
+            start, httpStatus: 451, status: "governance_blocked", requestId: null,
             governanceCategories: govCategories,
           },
           { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
