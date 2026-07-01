@@ -21,6 +21,7 @@ import {
 } from "./metrics";
 import { scanSecrets, scanEntities, categoriesOf } from "../governance/scan";
 import { governanceConfig, effectiveAction } from "../governance/policy";
+import { extractLastUserText } from "../governance/extract";
 import { parseUsage } from "../metering/usage";
 import { costFor } from "../metering/pricing";
 import { enqueueUsage } from "../metering/buffer";
@@ -165,34 +166,8 @@ const HOP_BY_HOP = new Set([
   "trailer",
 ]);
 
-/**
- * Extract only the newest user-supplied text from a JSON request body.
- * Scans the last message with role "user"; handles both string content and
- * Anthropic-style content block arrays. Falls back to null (caller uses
- * the full body) if the body isn't parseable or has no user messages.
- */
-export function extractLastUserText(decoded: string): string | null {
-  try {
-    const body = JSON.parse(decoded) as Record<string, unknown>;
-    const messages = body.messages;
-    if (!Array.isArray(messages)) return null;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i] as { role?: string; content?: unknown };
-      if (msg.role !== "user") continue;
-      if (typeof msg.content === "string") return msg.content;
-      if (Array.isArray(msg.content)) {
-        return msg.content
-          .filter((b: { type?: string; text?: string }) => b.type === "text" && typeof b.text === "string")
-          .map((b: { text?: string }) => b.text as string)
-          .join("\n");
-      }
-      return null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+// Re-exported so existing direct importers (e.g. tests) keep working.
+export { extractLastUserText } from "../governance/extract";
 
 function extractToken(c: Context): string | null {
   const auth = c.req.header("authorization");

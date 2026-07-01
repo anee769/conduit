@@ -120,8 +120,7 @@ test("scanSecrets + scanEntities combine into a single category set", () => {
 });
 
 // ── extractLastUserText (session-history isolation) ───────────────────────────
-// Import the helper directly to test it without spinning up the full gateway.
-import { extractLastUserText } from "../../apps/gateway/src/routes/proxy";
+import { extractLastUserText } from "../../apps/gateway/src/governance/extract";
 
 test("extractLastUserText: picks last user message string", () => {
   const body = JSON.stringify({
