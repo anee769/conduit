@@ -168,3 +168,15 @@ export async function listProviderCredentials(orgId: string) {
 export async function revokeVirtualKey(id: string): Promise<void> {
   await db.update(virtualKeys).set({ status: "revoked" }).where(eq(virtualKeys.id, id));
 }
+
+export async function deleteTeam(id: string): Promise<void> {
+  await db.delete(teams).where(eq(teams.id, id));
+}
+
+export async function deleteCredential(id: string): Promise<void> {
+  await db.delete(providerCredentials).where(eq(providerCredentials.id, id));
+}
+
+export async function renameOrg(id: string, name: string): Promise<void> {
+  await db.update(organizations).set({ name }).where(eq(organizations.id, id));
+}

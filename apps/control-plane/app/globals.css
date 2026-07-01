@@ -311,6 +311,9 @@ td.r, th.r { text-align: right; }
 .actions { display: flex; gap: 0.5rem; }
 .btn-sm { display: inline-block; background: transparent; border: 1px solid var(--line, #d8dce4); color: var(--ink-soft); border-radius: 6px; padding: 0.35rem 0.7rem; font-size: 0.8rem; font-weight: 500; cursor: pointer; text-decoration: none; transition: border-color 0.12s ease, color 0.12s ease; }
 .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+.btn-danger { border-color: transparent; color: #e05252; }
+.btn-danger:hover { border-color: #e05252; color: #e05252; }
+.settings-row { display: flex; align-items: center; gap: 0.75rem; }
 .good { color: var(--good); }
 .steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.55rem; font-size: 0.92rem; }
 .tick { display: inline-block; width: 1.4rem; color: var(--ink-mute); }

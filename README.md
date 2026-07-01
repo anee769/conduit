@@ -138,7 +138,7 @@ Conduit runs **entirely in your own cloud** — no vendor in the request path, n
     --certificate-oidc-issuer https://token.actions.githubusercontent.com
   ```
 - Generate an SBOM locally any time with `bash scripts/sbom.sh`.
-- **72 automated tests** run on every PR — including the AWS SigV4 reference vector and a governance privacy invariant (the secret/entity value never appears in stored events).
+- **86 automated tests** run on every PR — including the AWS SigV4 reference vector and a governance privacy invariant (the secret/entity value never appears in stored events).
 
 ## Architecture (briefly)
 

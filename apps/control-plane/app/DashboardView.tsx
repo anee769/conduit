@@ -647,6 +647,7 @@ function Settings() {
   const [budgets, setBudgets] = useState<SettingsBudget[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [orgEdit, setOrgEdit] = useState<string | null>(null); // null = not editing
 
   const refresh = useCallback(async () => {
     try {
@@ -670,15 +671,37 @@ function Settings() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const [credForm, setCredForm] = useState({ provider: "anthropic", apiKey: "" });
+  const [credForm, setCredForm] = useState({ provider: "anthropic", apiKey: "", displayName: "" });
   const [teamForm, setTeamForm] = useState("");
   const [keyForm, setKeyForm] = useState({ name: "", teamId: "" });
   const [budgetForm, setBudgetForm] = useState({ name: "", teamId: "", periodType: "monthly", limitUsd: "", action: "block" });
 
+  async function saveOrgName() {
+    if (!org || !orgEdit?.trim()) return;
+    try {
+      await jsonFetch(`/api/admin/orgs/${org.id}`, { method: "PATCH", body: JSON.stringify({ name: orgEdit.trim() }) });
+      setOrgEdit(null);
+      await refresh();
+    } catch (e) { setErr(String(e)); }
+  }
   async function addCredential() {
     try {
-      await jsonFetch("/api/admin/credentials", { method: "POST", body: JSON.stringify({ provider: credForm.provider, apiKey: credForm.apiKey }) });
-      setCredForm({ ...credForm, apiKey: "" });
+      await jsonFetch("/api/admin/credentials", {
+        method: "POST",
+        body: JSON.stringify({
+          provider: credForm.provider,
+          apiKey: credForm.apiKey,
+          displayName: credForm.displayName || credForm.provider,
+        }),
+      });
+      setCredForm({ provider: "anthropic", apiKey: "", displayName: "" });
+      await refresh();
+    } catch (e) { setErr(String(e)); }
+  }
+  async function deleteCredential(id: string) {
+    if (!confirm("Remove this credential? Keys using it will stop working.")) return;
+    try {
+      await jsonFetch(`/api/admin/credentials/${id}`, { method: "DELETE" });
       await refresh();
     } catch (e) { setErr(String(e)); }
   }
@@ -686,6 +709,13 @@ function Settings() {
     try {
       await jsonFetch("/api/admin/teams", { method: "POST", body: JSON.stringify({ name: teamForm }) });
       setTeamForm("");
+      await refresh();
+    } catch (e) { setErr(String(e)); }
+  }
+  async function deleteTeam(id: string, name: string) {
+    if (!confirm(`Delete team "${name}"? Virtual keys assigned to it will become unassigned.`)) return;
+    try {
+      await jsonFetch(`/api/admin/teams/${id}`, { method: "DELETE" });
       await refresh();
     } catch (e) { setErr(String(e)); }
   }
@@ -720,30 +750,57 @@ function Settings() {
       await refresh();
     } catch (e) { setErr(String(e)); }
   }
+  async function deleteBudget(id: string, name: string) {
+    if (!confirm(`Delete budget "${name}"?`)) return;
+    try {
+      await jsonFetch(`/api/admin/budgets/${id}`, { method: "DELETE" });
+      await refresh();
+    } catch (e) { setErr(String(e)); }
+  }
 
   return (
     <>
-      {err && <div className="card error">{err}</div>}
+      {err && <div className="card error" style={{ cursor: "pointer" }} onClick={() => setErr(null)}>{err} <span className="muted">· click to dismiss</span></div>}
 
+      {/* Organization */}
       <section className="card">
         <h2>Organization</h2>
         {org ? (
-          <p>
-            <b>{org.name}</b> <span className="muted mono">· {org.id}</span>
-          </p>
+          orgEdit !== null ? (
+            <div className="row">
+              <input className="in" value={orgEdit} onChange={(e) => setOrgEdit(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void saveOrgName()} autoFocus />
+              <button className="btn" onClick={() => void saveOrgName()} disabled={!orgEdit.trim()}>Save</button>
+              <button className="btn-sm" onClick={() => setOrgEdit(null)}>Cancel</button>
+            </div>
+          ) : (
+            <div className="settings-row">
+              <b>{org.name}</b>
+              <button className="btn-sm" onClick={() => setOrgEdit(org.name)}>Rename</button>
+            </div>
+          )
         ) : (
           <p className="muted">No organization yet — create one to get started.</p>
         )}
       </section>
 
+      {/* Provider credentials */}
       <section className="card">
         <h2>Provider credentials <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem", textTransform: "none" }}>· {credentials.length}</span></h2>
         {credentials.length > 0 && (
-          <ul className="steps" style={{ marginBottom: ".9rem" }}>
-            {credentials.map((c) => (
-              <li key={c.id}><span className="tick on">✓</span> {c.displayName} <span className="muted">· {c.provider}</span></li>
-            ))}
-          </ul>
+          <table style={{ marginBottom: ".9rem" }}>
+            <thead><tr><th>Name</th><th>Provider</th><th></th></tr></thead>
+            <tbody>
+              {credentials.map((c) => (
+                <tr key={c.id}>
+                  <td><b>{c.displayName}</b></td>
+                  <td className="muted">{c.provider}</td>
+                  <td style={{ textAlign: "right" }}>
+                    <button className="btn-sm btn-danger" onClick={() => void deleteCredential(c.id)}>Remove</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
         <div className="row">
           <select className="in" value={credForm.provider} onChange={(e) => setCredForm({ ...credForm, provider: e.target.value })}>
@@ -751,38 +808,60 @@ function Settings() {
             <option value="openai">openai</option>
             <option value="azure">azure</option>
           </select>
-          <input className="in" placeholder="provider API key (encrypted at rest)" type="password" value={credForm.apiKey} onChange={(e) => setCredForm({ ...credForm, apiKey: e.target.value })} />
-          <button className="btn" onClick={() => void addCredential()} disabled={!credForm.apiKey}>Add credential</button>
+          <input className="in" placeholder="Display name (optional)" value={credForm.displayName} onChange={(e) => setCredForm({ ...credForm, displayName: e.target.value })} />
+          <input className="in" placeholder="API key (encrypted at rest)" type="password" value={credForm.apiKey} onChange={(e) => setCredForm({ ...credForm, apiKey: e.target.value })} />
+          <button className="btn" onClick={() => void addCredential()} disabled={!credForm.apiKey}>Add</button>
         </div>
       </section>
 
       <div className="cols">
+        {/* Teams */}
         <section className="card">
           <h2>Teams <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem", textTransform: "none" }}>· {teams.length}</span></h2>
           {teams.length > 0 && (
-            <ul className="steps" style={{ marginBottom: ".9rem" }}>
-              {teams.map((t) => <li key={t.id}><span className="tick on">✓</span> {t.name}</li>)}
-            </ul>
+            <table style={{ marginBottom: ".9rem" }}>
+              <thead><tr><th>Name</th><th></th></tr></thead>
+              <tbody>
+                {teams.map((t) => (
+                  <tr key={t.id}>
+                    <td>{t.name}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <button className="btn-sm btn-danger" onClick={() => void deleteTeam(t.id, t.name)}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
           <div className="row">
-            <input className="in" placeholder="Team name" value={teamForm} onChange={(e) => setTeamForm(e.target.value)} />
+            <input className="in" placeholder="Team name" value={teamForm} onChange={(e) => setTeamForm(e.target.value)} onKeyDown={(e) => e.key === "Enter" && teamForm && void addTeam()} />
             <button className="btn" onClick={() => void addTeam()} disabled={!teamForm}>Add team</button>
           </div>
         </section>
 
+        {/* Budgets */}
         <section className="card">
           <h2>Budgets <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem", textTransform: "none" }}>· {budgets.length}</span></h2>
           {budgets.length > 0 && (
-            <ul className="steps" style={{ marginBottom: ".9rem" }}>
-              {budgets.map((b) => {
-                const team = teams.find((t) => t.id === b.teamId);
-                return (
-                  <li key={b.id}>
-                    <span className="tick on">✓</span> {b.name} <span className="muted">· {usd(b.limitUsd)}/{b.periodType} · {team ? team.name : "org-wide"} · {b.action}</span>
-                  </li>
-                );
-              })}
-            </ul>
+            <table style={{ marginBottom: ".9rem" }}>
+              <thead><tr><th>Name</th><th>Limit</th><th>Scope</th><th>Action</th><th></th></tr></thead>
+              <tbody>
+                {budgets.map((b) => {
+                  const team = teams.find((t) => t.id === b.teamId);
+                  return (
+                    <tr key={b.id}>
+                      <td><b>{b.name}</b></td>
+                      <td className="muted">{usd(b.limitUsd)}/{b.periodType}</td>
+                      <td className="muted">{team ? team.name : "org-wide"}</td>
+                      <td><span className={`pill pill-${b.action === "block" ? "blocked" : "cache_hit"}`}>{b.action}</span></td>
+                      <td style={{ textAlign: "right" }}>
+                        <button className="btn-sm btn-danger" onClick={() => void deleteBudget(b.id, b.name)}>Delete</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
           <div className="row">
             <input className="in" placeholder="Budget name" value={budgetForm.name} onChange={(e) => setBudgetForm({ ...budgetForm, name: e.target.value })} />
@@ -806,6 +885,7 @@ function Settings() {
         </section>
       </div>
 
+      {/* Virtual keys */}
       <section className="card">
         <h2>Virtual keys <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem", textTransform: "none" }}>· {keys.filter((k) => k.status === "active").length} active</span></h2>
         {keys.length > 0 && (
@@ -819,11 +899,11 @@ function Settings() {
                   <tr key={k.id}>
                     <td>{k.name}</td>
                     <td className="mono">{k.keyPrefix ?? "—"}</td>
-                    <td>{team ? team.name : "Unassigned"}</td>
+                    <td>{team ? team.name : "—"}</td>
                     <td>{active ? <span className="pill pill-success">active</span> : <span className="pill pill-error">revoked</span>}</td>
-                    <td>
+                    <td style={{ textAlign: "right" }}>
                       {active && (
-                        <button className="btn-sm" onClick={() => void revokeKey(k.id)}>Revoke</button>
+                        <button className="btn-sm btn-danger" onClick={() => void revokeKey(k.id)}>Revoke</button>
                       )}
                     </td>
                   </tr>
@@ -833,7 +913,7 @@ function Settings() {
           </table>
         )}
         <div className="row">
-          <input className="in" placeholder="Key name (e.g. priya — claude-code)" value={keyForm.name} onChange={(e) => setKeyForm({ ...keyForm, name: e.target.value })} />
+          <input className="in" placeholder="Key name (e.g. priya — claude-code)" value={keyForm.name} onChange={(e) => setKeyForm({ ...keyForm, name: e.target.value })} onKeyDown={(e) => e.key === "Enter" && keyForm.name && void addKey()} />
           <select className="in" value={keyForm.teamId} onChange={(e) => setKeyForm({ ...keyForm, teamId: e.target.value })}>
             <option value="">{teams[0] ? `Team: ${teams[0].name} (default)` : "No team"}</option>
             {teams.map((t) => <option key={t.id} value={t.id}>Team: {t.name}</option>)}
@@ -844,6 +924,7 @@ function Settings() {
           <div className="snippet" style={{ marginTop: "1rem" }}>
             <b>Copy this now — it&apos;s shown once:</b>
             <pre style={{ margin: "0.5rem 0 0" }}>{createdKey}</pre>
+            <button className="btn-sm" style={{ marginTop: ".5rem" }} onClick={() => setCreatedKey(null)}>Dismiss</button>
           </div>
         )}
       </section>

@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+
 import { db } from "./client";
 import { budgets, type Budget } from "./schema";
 
@@ -33,4 +34,8 @@ export async function loadBudgets(): Promise<Budget[]> {
 /** All budgets for one org (dashboard). */
 export async function listBudgets(orgId: string): Promise<Budget[]> {
   return db.select().from(budgets).where(eq(budgets.orgId, orgId));
+}
+
+export async function deleteBudget(id: string): Promise<void> {
+  await db.delete(budgets).where(eq(budgets.id, id));
 }

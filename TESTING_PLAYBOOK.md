@@ -378,6 +378,14 @@ requests once the cap is reached. This is the "stop the bleeding" feature — if
 monthly AI bill is going to blow past $10,000, you'd rather find out via a 402
 error than a surprise invoice.
 
+**Option A — Settings tab (recommended):**
+
+Open `http://localhost:3000` → **Settings** tab → scroll to **Budgets** → add a budget
+with limit `$0.00001`, period `monthly`, action `block`. Note the org ID shown in the
+org panel — you'll need it for the Redis step below.
+
+**Option B — raw SQL (if testing headless):**
+
 First, get the org ID from the database:
 
 ```bash
@@ -388,18 +396,18 @@ ORG_ID=$(docker exec conduit-postgres-1 \
 echo "Org ID: $ORG_ID"
 ```
 
-Set a comically tiny budget ($0.00001 = 1/100th of a cent) so we can trigger it
-with a single request:
+Insert a tiny budget:
 
 ```bash
-# Insert a hard monthly budget cap
 docker exec conduit-postgres-1 psql -U finops -d finops -c "
   INSERT INTO budgets (id, org_id, name, limit_usd, period_type, action)
   VALUES (gen_random_uuid(), '$ORG_ID', 'Monthly cap', 0.00001, 'monthly', 'block');
 "
+```
 
-# Manually push the Redis counter past the limit (simulates already-spent money)
-# redis-cli runs inside Docker — use docker exec
+Then manually push the Redis counter past the limit (simulates already-spent money):
+
+```bash
 docker exec conduit-redis-1 redis-cli set "spend:${ORG_ID}:org:monthly:$(date +%Y-%m)" 0.001
 ```
 
@@ -475,16 +483,20 @@ open http://localhost:3000
 
 **What to look at and verify:**
 
-| Section | What it shows | Verify |
+The dashboard has a **sidebar** with tabs: Overview · Spend · Activity · Budgets · Governance · Context rot · Settings.
+The **7d / 30d / 90d** window switcher is in the top-right of the header bar.
+
+| Section (tab) | What it shows | Verify |
 |---|---|---|
-| **Total spend** | Sum of all `costUsd` across the window | Non-zero if you ran seed-demo.sh |
-| **Caching saved** | Green number — savings from cache hits | Non-zero after Test 4 |
-| **Tokens** | Total input + output tokens | Should be in the thousands |
-| **Blocked** | Count of 429/403/402 responses | Non-zero after Tests 5/6/7 |
-| **Spend over time** | Bar chart by day | Blue bars for each day that had traffic |
-| **Spend by model** | Table of provider + model + requests + cost | Should show claude-sonnet-4, claude-opus-4, claude-haiku-4 |
-| **Spend by team** | Table of team + requests + cost | Should show "Engineering" |
-| **Recent requests** | Table of last 25 requests | Rows with `success` (green), `cache_hit` (blue), `blocked` (orange) pills |
+| **Overview — Total spend** | Sum of all `costUsd` across the window | Non-zero if you ran seed-demo.sh |
+| **Overview — Caching saved** | Green number — savings from cache hits | Non-zero after Test 4 |
+| **Overview — Tokens** | Total input + cache + output tokens | Should be in the thousands |
+| **Overview — Blocked** | Count of 429/403/402 responses | Non-zero after Tests 5/6/7 |
+| **Spend** | Bar chart by day + model / team breakdown | Bars for each day that had traffic |
+| **Activity** | Table of last 25 requests | Rows with `success` (green), `cache_hit` (blue), `blocked` (orange) pills |
+| **Budgets** | Spend vs limit bar per budget | Non-zero % after a request this period |
+| **Governance** | Flagged request count, categories breakdown | Non-zero after Test 11.5 |
+| **Settings** | Org info, credentials, teams, virtual keys, budgets | Live CRUD — changes take effect immediately |
 
 ### 8c. Privacy verification — confirm no bodies are stored
 
@@ -714,7 +726,7 @@ After all manual testing, run the automated suite as a final sanity check:
 bash scripts/run-tests.sh
 ```
 
-**Expected:** `49 passing` — 30 unit tests (pure logic, no infra) and 19 system
+**Expected:** `86 passing` — 62 unit tests (pure logic, no infra) and 24 system
 tests (live end-to-end against the running stack).
 
 > The runner takes full ownership of ports 4000/8787/3000 and starts an isolated,

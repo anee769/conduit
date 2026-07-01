@@ -35,6 +35,9 @@ type Rule = { ruleId: string; category: string; re: RegExp };
 // false positives near zero. Order is irrelevant — every rule is evaluated.
 const RULES: Rule[] = [
   { ruleId: "aws_access_key_id", category: "aws_credentials", re: /\b(?:AKIA|ASIA|AGPA|AROA|AIDA|ANPA|ANVA|AIPA)[A-Z0-9]{16}\b/ },
+  // AWS secret access key: 40-char base64-ish string preceded by an AWS-context keyword.
+  // Anchoring to the keyword keeps false-positive rate near zero.
+  { ruleId: "aws_secret_access_key", category: "aws_credentials", re: /(?:aws_secret(?:_access)?_key|secret[_\-]?access[_\-]?key|SecretAccessKey)["']?\s*[:=\s]\s*["']?[A-Za-z0-9+/]{40}["']?/i },
   { ruleId: "private_key_block", category: "private_key", re: /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----/ },
   { ruleId: "github_token", category: "github_token", re: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36}\b/ },
   { ruleId: "github_pat_fine", category: "github_token", re: /\bgithub_pat_[A-Za-z0-9_]{60,}\b/ },
@@ -44,9 +47,9 @@ const RULES: Rule[] = [
   { ruleId: "slack_token", category: "slack_token", re: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/ },
   { ruleId: "stripe_secret_key", category: "stripe_key", re: /\b(?:sk|rk)_live_[0-9a-zA-Z]{24,}\b/ },
   { ruleId: "jwt", category: "jwt", re: /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/ },
-  // Generic "secret = '...'" assignment. Conservative: needs a sensitive key
-  // name AND a quoted value of reasonable length.
-  { ruleId: "generic_assigned_secret", category: "generic_secret", re: /(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token)["']?\s*[:=]\s*["'][^"'\s]{8,}["']/i },
+  // Generic sensitive-keyword assignment. Catches both quoted (`secret = "foo"`)
+  // and unquoted/space-separated (`secret wJalrX...`) forms.
+  { ruleId: "generic_assigned_secret", category: "generic_secret", re: /(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token)["']?\s*[:=\s]\s*["']?[^\s"']{8,}["']?/i },
 ];
 
 /**
