@@ -29,6 +29,9 @@ importers:
       '@finops/types':
         specifier: workspace:*
         version: link:../../packages/types
+      ioredis:
+        specifier: ^5.4.2
+        version: 5.11.0
       next:
         specifier: ^15.1.3
         version: 15.5.18(@opentelemetry/api@1.9.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)

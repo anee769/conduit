@@ -1,5 +1,6 @@
 import { db, teams, virtualKeys, organizations, loadModelPricing, loadBudgets } from "@finops/db";
 import { chQuery } from "./clickhouse";
+import { readSpend } from "./redis";
 
 /**
  * Dashboard analytics. ClickHouse owns the heavy aggregation; Postgres supplies
@@ -464,9 +465,10 @@ export type BudgetStatus = {
 };
 
 /**
- * Current-period spend vs each configured budget. Spend is read from ClickHouse
- * (authoritative history) rather than the Redis live counter, so the dashboard
- * is correct even if Redis was flushed.
+ * Current-period spend vs each configured budget.
+ * Reads from the Redis live counters — the same values the gateway enforces
+ * against — so the dashboard always shows what will trigger a block, not a
+ * batched ClickHouse aggregate that can lag by seconds.
  */
 export async function getBudgetStatus(): Promise<BudgetStatus[]> {
   const [defs, teamRows] = await Promise.all([
@@ -477,16 +479,7 @@ export async function getBudgetStatus(): Promise<BudgetStatus[]> {
 
   const out: BudgetStatus[] = [];
   for (const b of defs) {
-    const periodFilter =
-      b.periodType === "daily"
-        ? "toDate(ts) = today()"
-        : "toStartOfMonth(ts) = toStartOfMonth(now())";
-    // Always scope to the budget's org; add the team filter only for team caps.
-    const scopeFilter = `org_id = '${b.orgId}'` + (b.teamId ? ` AND team_id = '${b.teamId}'` : "");
-    const [row] = await chQuery<Record<string, unknown>>(
-      `SELECT sum(cost_usd) AS spent FROM usage_events WHERE ${periodFilter} AND ${scopeFilter}`,
-    );
-    const spentUsd = n(row?.spent);
+    const spentUsd = await readSpend(b.orgId, b.teamId ?? null, b.periodType);
     out.push({
       name: b.name,
       scope: b.teamId ? (names.get(b.teamId) ?? "Team") : "Org-wide",
