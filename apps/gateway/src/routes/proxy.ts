@@ -204,9 +204,9 @@ function extractToken(c: Context): string | null {
 
 function stripResponseHeaders(source: Headers): Headers {
   const out = new Headers();
-  for (const [key, value] of source.entries()) {
+  source.forEach((value, key) => {
     if (!HOP_BY_HOP.has(key.toLowerCase())) out.set(key, value);
-  }
+  });
   return out;
 }
 
