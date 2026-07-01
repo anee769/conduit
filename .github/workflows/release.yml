@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write   # upload SBOM to release assets
   packages: write   # push to GHCR
   id-token: write   # cosign keyless signing (OIDC)
 
