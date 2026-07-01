@@ -639,7 +639,7 @@ function Activity({ recent, days }: { recent: RecentRow[]; days: number }) {
             <a className="btn-sm" href={`/api/audit?days=${days}&format=json`}>Export JSON</a>
           </div>
         </div>
-        <p className="muted" style={{ marginTop: -4, marginBottom: "0.75rem" }}>
+        <p className="muted" style={{ marginTop: "0.6rem", marginBottom: "0.75rem" }}>
           Immutable, append-only record of every request — metadata only (who, when, model, status, tokens, cost, governance categories). Prompts and completions are <b>never stored</b>. Use for compliance reviews, security incidents, or cost chargebacks.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
